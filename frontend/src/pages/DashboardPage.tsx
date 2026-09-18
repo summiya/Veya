@@ -5,8 +5,10 @@ import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../lib/api";
 import { instagramService } from "../services/instagram-service";
 import { sentimentService } from "../services/sentiment-service";
+import { safetyService } from "../services/safety-service";
 import type { InstagramAccount, InstagramMedia } from "../types/instagram";
 import type { SentimentSummary } from "../types/sentiment";
+import type { SafetyComment, SafetySummary } from "../types/safety";
 
 type MediaWithSentiment = {
   media: InstagramMedia;
@@ -23,6 +25,16 @@ const EMPTY_SENTIMENT: SentimentSummary = {
   negative_percentage: 0,
 };
 
+const EMPTY_SAFETY: SafetySummary = {
+  total: 0,
+  safe: 0,
+  constructive: 0,
+  toxic: 0,
+  severe_abuse: 0,
+  spam: 0,
+  shielded: 0,
+};
+
 function percentage(value: number): string {
   return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
 }
@@ -35,6 +47,10 @@ export function DashboardPage() {
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [summary, setSummary] = useState<SentimentSummary>(EMPTY_SENTIMENT);
+  const [safetySummary, setSafetySummary] = useState<SafetySummary>(EMPTY_SAFETY);
+  const [feedComments, setFeedComments] = useState<SafetyComment[]>([]);
+  const [shieldedComments, setShieldedComments] = useState<SafetyComment[]>([]);
+  const [isShieldRevealed, setIsShieldRevealed] = useState(false);
   const [media, setMedia] = useState<MediaWithSentiment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
@@ -47,8 +63,10 @@ export function DashboardPage() {
   );
 
   const loadAccountData = useCallback(async (accountId: number) => {
-    const [accountSummary, accountMedia] = await Promise.all([
+    const [accountSummary, accountSafety, accountFeed, accountMedia] = await Promise.all([
       sentimentService.getAccountSummary(accountId),
+      safetyService.getSummary(accountId),
+      safetyService.getFeed(accountId),
       instagramService.listMedia(accountId),
     ]);
 
@@ -60,6 +78,10 @@ export function DashboardPage() {
     );
 
     setSummary(accountSummary);
+    setSafetySummary(accountSafety);
+    setFeedComments(accountFeed);
+    setShieldedComments([]);
+    setIsShieldRevealed(false);
     setMedia(mediaWithSentiment);
   }, []);
 
@@ -73,6 +95,10 @@ export function DashboardPage() {
       if (connectedAccounts.length === 0) {
         setSelectedAccountId(null);
         setSummary(EMPTY_SENTIMENT);
+        setSafetySummary(EMPTY_SAFETY);
+        setFeedComments([]);
+        setShieldedComments([]);
+        setIsShieldRevealed(false);
         setMedia([]);
         return;
       }
@@ -134,11 +160,14 @@ export function DashboardPage() {
 
     try {
       const sync = await instagramService.sync(selectedAccountId);
-      const analyzed = await sentimentService.analyzeAccount(selectedAccountId);
+      const [sentimentAnalysis, safetyAnalysis] = await Promise.all([
+        sentimentService.analyzeAccount(selectedAccountId),
+        safetyService.analyzeAccount(selectedAccountId),
+      ]);
       await loadAccountData(selectedAccountId);
 
       setNotice(
-        `Synced ${sync.media_count} posts and ${sync.comment_count} comments. Analyzed ${analyzed.analyzed_comments} comments.`,
+        `Synced ${sync.media_count} posts and ${sync.comment_count} comments. Analyzed ${sentimentAnalysis.analyzed_comments} sentiment records and ${safetyAnalysis.analyzed_comments} safety records.`,
       );
     } catch (caught) {
       setError(
@@ -167,6 +196,25 @@ export function DashboardPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleRevealShielded() {
+    if (!selectedAccountId || isShieldRevealed) {
+      return;
+    }
+
+    setError("");
+    try {
+      const comments = await safetyService.getShielded(selectedAccountId, true);
+      setShieldedComments(comments);
+      setIsShieldRevealed(true);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "We could not reveal shielded comments.",
+      );
     }
   }
 
@@ -303,6 +351,82 @@ export function DashboardPage() {
                 <span>Negative</span>
                 <small>{summary.negative.toLocaleString()} comments</small>
               </article>
+            </div>
+          </section>
+
+          <section className="safety-section">
+            <div className="section-heading">
+              <div>
+                <p className="auth-kicker">Creator safety</p>
+                <h2>Comment Shield</h2>
+              </div>
+              <p>{safetySummary.total} safety-classified comments</p>
+            </div>
+
+            <div className="safety-grid">
+              <article className="shield-card">
+                <div>
+                  <span className="shield-icon" aria-hidden="true">🛡️</span>
+                  <p className="auth-kicker">Shielded by default</p>
+                  <strong>{safetySummary.shielded}</strong>
+                  <p>
+                    Potentially harmful comments are counted in analytics without
+                    being shown to you unless you choose to reveal them.
+                  </p>
+                </div>
+                <button
+                  className="secondary-button"
+                  disabled={isShieldRevealed || safetySummary.shielded === 0}
+                  onClick={() => void handleRevealShielded()}
+                  type="button"
+                >
+                  {isShieldRevealed ? "Shielded comments revealed" : "View shielded comments"}
+                </button>
+              </article>
+
+              <div className="safety-stats">
+                <article><strong>{safetySummary.constructive}</strong><span>Constructive</span></article>
+                <article><strong>{safetySummary.toxic}</strong><span>Toxic</span></article>
+                <article><strong>{safetySummary.severe_abuse}</strong><span>Severe abuse</span></article>
+                <article><strong>{safetySummary.spam}</strong><span>Spam</span></article>
+              </div>
+            </div>
+
+            {isShieldRevealed && shieldedComments.length > 0 ? (
+              <div className="shielded-list">
+                {shieldedComments.map((comment) => (
+                  <article key={comment.id}>
+                    <strong>@{comment.username ?? "Instagram user"}</strong>
+                    <p>{comment.text}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="positive-feed">
+              <div className="section-heading">
+                <div>
+                  <p className="auth-kicker">Positive feed</p>
+                  <h2>Useful comments without the harmful noise</h2>
+                </div>
+                <p>{feedComments.length} comments</p>
+              </div>
+
+              {feedComments.length === 0 ? (
+                <div className="empty-posts">
+                  <h3>No safety feed yet</h3>
+                  <p>Run “Sync & analyze” to classify your latest comments.</p>
+                </div>
+              ) : (
+                <div className="comment-feed">
+                  {feedComments.slice(0, 8).map((comment) => (
+                    <article key={comment.id}>
+                      <strong>@{comment.username ?? "Instagram user"}</strong>
+                      <p>{comment.text}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
