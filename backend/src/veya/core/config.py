@@ -22,7 +22,12 @@ class Settings(BaseSettings):
     )
     instagram_token_encryption_key: str = ""
     frontend_app_url: str = "http://localhost:5173"
-    frontend_app_url: str = "http://localhost:5173"
+
+    openai_api_key: str = ""
+    openai_model: str = "gpt-5.6-luna"
+    openai_responses_url: str = "https://api.openai.com/v1/responses"
+    insights_max_comments: int = 200
+    insights_max_comment_chars: int = 600
 
     model_config = SettingsConfigDict(
         env_file=".env",

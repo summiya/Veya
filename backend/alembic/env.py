@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from veya.core.config import settings
 from veya.domain.authentication.models import RefreshToken  # noqa: F401
+from veya.domain.insights.models import AudienceInsight  # noqa: F401
 from veya.domain.instagram.models import (  # noqa: F401
     InstagramAccount,
     InstagramComment,

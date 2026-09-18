@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   getSafetySummary: vi.fn(),
   getFeed: vi.fn(),
   getShielded: vi.fn(),
+  getInsight: vi.fn(),
+  generateInsight: vi.fn(),
   logout: vi.fn(),
 }));
 
@@ -57,6 +59,13 @@ vi.mock("../services/safety-service", () => ({
   },
 }));
 
+vi.mock("../services/insights-service", () => ({
+  insightsService: {
+    getCurrent: mocks.getInsight,
+    generate: mocks.generateInsight,
+  },
+}));
+
 function renderDashboard(route = "/dashboard") {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -79,6 +88,7 @@ describe("DashboardPage", () => {
     });
     mocks.getFeed.mockResolvedValue([]);
     mocks.getShielded.mockResolvedValue([]);
+    mocks.getInsight.mockResolvedValue(null);
   });
 
   it("shows the Instagram connection state for a new user", async () => {
@@ -157,6 +167,19 @@ describe("DashboardPage", () => {
         commented_at: null,
       },
     ]);
+    mocks.getInsight.mockResolvedValue({
+      id: 99,
+      summary: "People love the editing and want clearer audio.",
+      what_people_loved: ["Editing style"],
+      constructive_feedback: ["Increase audio volume"],
+      recurring_complaints: ["Audio is low"],
+      common_questions: ["Where is the location?"],
+      content_suggestions: ["Add location details"],
+      provider: "openai",
+      model: "gpt-test",
+      source_comment_count: 88,
+      generated_at: new Date().toISOString(),
+    });
 
     renderDashboard();
 
@@ -167,6 +190,9 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Comment Shield")).toBeInTheDocument();
     expect((await screen.findAllByText("8")).length).toBeGreaterThan(0);
     expect(screen.getByText("Love the editing!")).toBeInTheDocument();
+    expect(screen.getByText("People love the editing and want clearer audio.")).toBeInTheDocument();
+    expect(screen.getByText("Editing style")).toBeInTheDocument();
+    expect(screen.getByText("Increase audio volume")).toBeInTheDocument();
     expect(mocks.getShielded).not.toHaveBeenCalled();
 
     await waitFor(() => {

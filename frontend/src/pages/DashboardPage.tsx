@@ -6,9 +6,11 @@ import { ApiError } from "../lib/api";
 import { instagramService } from "../services/instagram-service";
 import { sentimentService } from "../services/sentiment-service";
 import { safetyService } from "../services/safety-service";
+import { insightsService } from "../services/insights-service";
 import type { InstagramAccount, InstagramMedia } from "../types/instagram";
 import type { SentimentSummary } from "../types/sentiment";
 import type { SafetyComment, SafetySummary } from "../types/safety";
+import type { AudienceInsight } from "../types/insights";
 
 type MediaWithSentiment = {
   media: InstagramMedia;
@@ -51,6 +53,8 @@ export function DashboardPage() {
   const [feedComments, setFeedComments] = useState<SafetyComment[]>([]);
   const [shieldedComments, setShieldedComments] = useState<SafetyComment[]>([]);
   const [isShieldRevealed, setIsShieldRevealed] = useState(false);
+  const [audienceInsight, setAudienceInsight] = useState<AudienceInsight | null>(null);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [media, setMedia] = useState<MediaWithSentiment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
@@ -63,12 +67,14 @@ export function DashboardPage() {
   );
 
   const loadAccountData = useCallback(async (accountId: number) => {
-    const [accountSummary, accountSafety, accountFeed, accountMedia] = await Promise.all([
-      sentimentService.getAccountSummary(accountId),
-      safetyService.getSummary(accountId),
-      safetyService.getFeed(accountId),
-      instagramService.listMedia(accountId),
-    ]);
+    const [accountSummary, accountSafety, accountFeed, accountMedia, currentInsight] =
+      await Promise.all([
+        sentimentService.getAccountSummary(accountId),
+        safetyService.getSummary(accountId),
+        safetyService.getFeed(accountId),
+        instagramService.listMedia(accountId),
+        insightsService.getCurrent(accountId),
+      ]);
 
     const mediaWithSentiment = await Promise.all(
       accountMedia.map(async (item) => ({
@@ -82,6 +88,7 @@ export function DashboardPage() {
     setFeedComments(accountFeed);
     setShieldedComments([]);
     setIsShieldRevealed(false);
+    setAudienceInsight(currentInsight);
     setMedia(mediaWithSentiment);
   }, []);
 
@@ -99,6 +106,7 @@ export function DashboardPage() {
         setFeedComments([]);
         setShieldedComments([]);
         setIsShieldRevealed(false);
+        setAudienceInsight(null);
         setMedia([]);
         return;
       }
@@ -196,6 +204,32 @@ export function DashboardPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleGenerateInsights() {
+    if (!selectedAccountId) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    setIsGeneratingInsights(true);
+
+    try {
+      const insight = await insightsService.generate(selectedAccountId);
+      setAudienceInsight(insight);
+      setNotice(
+        `AI audience insights generated from ${insight.source_comment_count} safe and constructive comments.`,
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "We could not generate AI audience insights.",
+      );
+    } finally {
+      setIsGeneratingInsights(false);
     }
   }
 
@@ -428,6 +462,91 @@ export function DashboardPage() {
                 </div>
               )}
             </div>
+          </section>
+
+          <section className="insights-section">
+            <div className="section-heading">
+              <div>
+                <p className="auth-kicker">AI audience insights</p>
+                <h2>What your audience is telling you</h2>
+              </div>
+              <button
+                className="primary-button"
+                disabled={isGeneratingInsights || safetySummary.total === 0}
+                onClick={() => void handleGenerateInsights()}
+                type="button"
+              >
+                {isGeneratingInsights
+                  ? "Generating insights…"
+                  : audienceInsight
+                    ? "Regenerate insights"
+                    : "Generate AI insights"}
+              </button>
+            </div>
+
+            {audienceInsight ? (
+              <div className="insights-panel">
+                <article className="insight-summary">
+                  <p className="auth-kicker">Audience summary</p>
+                  <p>{audienceInsight.summary}</p>
+                  <small>
+                    Generated from {audienceInsight.source_comment_count} safe or
+                    constructive comments.
+                  </small>
+                </article>
+
+                <div className="insight-grid">
+                  <article>
+                    <h3>❤️ What people loved</h3>
+                    <ul>
+                      {audienceInsight.what_people_loved.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                  <article>
+                    <h3>💡 Constructive feedback</h3>
+                    <ul>
+                      {audienceInsight.constructive_feedback.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                  <article>
+                    <h3>📌 Recurring complaints</h3>
+                    <ul>
+                      {audienceInsight.recurring_complaints.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                  <article>
+                    <h3>❓ Common questions</h3>
+                    <ul>
+                      {audienceInsight.common_questions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                  <article className="insight-suggestions">
+                    <h3>✨ Content suggestions</h3>
+                    <ul>
+                      {audienceInsight.content_suggestions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-posts">
+                <h3>No AI audience summary yet</h3>
+                <p>
+                  Sync and analyze your comments first, then generate a structured
+                  audience summary when you want one.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="posts-section">
