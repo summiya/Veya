@@ -439,7 +439,7 @@ export function DashboardPage() {
                 <div>
                   <strong>
                     Automatic sync {
-                      selectedAccount?.connection_status !== "connected"
+                      selectedAccount?.connection_status === "reconnect_required"
                         ? "paused"
                         : selectedAccount?.sync_status === "failed"
                           ? "needs attention"
@@ -482,7 +482,8 @@ export function DashboardPage() {
               <button
                 className="primary-button"
                 disabled={
-                  isWorking || selectedAccount?.connection_status !== "connected"
+                  isWorking ||
+                  selectedAccount?.connection_status === "reconnect_required"
                 }
                 onClick={() => void handleSyncAndAnalyze()}
                 type="button"
