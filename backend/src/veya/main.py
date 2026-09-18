@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from veya.api.routes.authentication import router as authentication_router
 from veya.api.routes.health import router as health_router
 
 app = FastAPI(
@@ -9,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(health_router)
+app.include_router(authentication_router)
 
 
 @app.get("/")
