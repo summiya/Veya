@@ -53,15 +53,48 @@ describe("Veya authentication UI", () => {
     fetchSpy.mockRestore();
   });
 
-  it("renders the forgot password screen without claiming email was sent", async () => {
+  it("submits forgot password and shows the privacy-safe confirmation", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message:
+            "If an active Veya account exists for that email, a password reset link has been sent.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
     const user = userEvent.setup();
     renderRoute("/forgot-password");
 
     await user.type(screen.getByLabelText("Email"), "creator@example.com");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.click(screen.getByRole("button", { name: /send reset link/i }));
 
     expect(
-      screen.getByText(/backend forgot-password endpoint and mail provider/i),
+      await screen.findByText(/if an active veya account exists/i),
     ).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalled();
+
+    fetchSpy.mockRestore();
+  });
+
+  it("renders and validates the reset password screen", async () => {
+    const user = userEvent.setup();
+    renderRoute("/reset-password?token=fake-reset-token-value-1234567890");
+
+    expect(
+      await screen.findByRole("heading", { name: /choose a new password/i }),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("New password"), "password-123");
+    await user.type(
+      screen.getByLabelText("Confirm new password"),
+      "password-456",
+    );
+    await user.click(screen.getByRole("button", { name: /reset password/i }));
+
+    expect(screen.getByText("Passwords do not match.")).toBeInTheDocument();
   });
 });
