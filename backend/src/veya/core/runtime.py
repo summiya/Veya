@@ -38,6 +38,12 @@ def production_configuration_errors(config: Settings) -> list[str]:
     if config.mail_provider.lower() == "resend" and not config.resend_api_key:
         errors.append("RESEND_API_KEY is required when MAIL_PROVIDER=resend")
 
+    if not config.rate_limit_enabled:
+        errors.append("RATE_LIMIT_ENABLED must be true in production")
+
+    if not config.trust_proxy_headers:
+        errors.append("TRUST_PROXY_HEADERS must be true in production")
+
     return errors
 
 

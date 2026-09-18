@@ -153,11 +153,18 @@ Complete in repository:
 - Production configuration validation
 - Production Docker CI smoke test
 
+Additional production controls complete:
+- Redis-backed authentication rate limiting
+- Trusted proxy IP handling
+- Nginx security headers
+- Secret generation tooling
+- PostgreSQL backup/verify/restore tooling
+- Backup validation in CI
+
 Remaining:
 - Choose and configure production hosting
-- Managed database backups
-- Secret-manager integration
-- Rate limiting
+- Managed/off-site automated backup storage
+- Cloud secret-manager integration
 - Error monitoring/alerting platform
 - Meta webhook support
 - Operational dashboards

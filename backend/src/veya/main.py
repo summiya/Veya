@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from veya.api.middleware.rate_limit import RateLimitMiddleware
 from veya.api.middleware.request_context import RequestContextMiddleware
 from veya.api.routes.analytics import router as analytics_router
 from veya.api.routes.authentication import router as authentication_router
@@ -30,6 +31,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestContextMiddleware)
 
 app.include_router(health_router)

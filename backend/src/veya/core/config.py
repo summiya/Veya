@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     background_sync_max_retries: int = 3
     background_sync_retry_seconds: int = 30
 
+    trust_proxy_headers: bool = False
+    rate_limit_enabled: bool = False
+    rate_limit_fail_open: bool = True
+    rate_limit_login_per_minute: int = 10
+    rate_limit_signup_per_hour: int = 20
+    rate_limit_forgot_password_per_hour: int = 5
+    rate_limit_reset_password_per_hour: int = 10
+    rate_limit_refresh_per_minute: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

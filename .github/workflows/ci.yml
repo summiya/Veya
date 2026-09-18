@@ -33,6 +33,16 @@ jobs:
       - name: Run backend tests
         run: pytest -q
 
+      - name: Validate operations scripts
+        working-directory: ${{ github.workspace }}
+        run: |
+          sh -n scripts/backup_postgres.sh
+          sh -n scripts/verify_postgres_backup.sh
+          sh -n scripts/restore_postgres.sh
+          python scripts/generate_secrets.py > /tmp/veya-generated-secrets
+          grep '^JWT_SECRET_KEY=' /tmp/veya-generated-secrets
+          grep '^INSTAGRAM_TOKEN_ENCRYPTION_KEY=' /tmp/veya-generated-secrets
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -165,6 +175,12 @@ jobs:
 
       - name: Check production worker
         run: docker compose -f docker-compose.production.yml ps --status running worker | grep worker
+
+      - name: Create and verify PostgreSQL backup
+        run: |
+          BACKUP_DIR=/tmp/veya-backups sh scripts/backup_postgres.sh
+          BACKUP_FILE="$(ls -1 /tmp/veya-backups/*.dump | head -n 1)"
+          sh scripts/verify_postgres_backup.sh "$BACKUP_FILE"
 
       - name: Show production logs on failure
         if: failure()
