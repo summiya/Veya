@@ -1,3 +1,5 @@
+import json
+
 import httpx
 
 from veya.core.config import settings
@@ -10,7 +12,7 @@ def test_resend_mailer_posts_transactional_email() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["authorization"] = request.headers.get("Authorization")
-        captured["body"] = request.content.decode()
+        captured["body"] = json.loads(request.content.decode())
         return httpx.Response(200, json={"id": "email-test"})
 
     original_key = settings.resend_api_key
@@ -34,6 +36,9 @@ def test_resend_mailer_posts_transactional_email() -> None:
         settings.mail_from = original_from
 
     assert captured["authorization"] == "Bearer fake-test-key"
-    assert '"to":["creator@example.com"]' in captured["body"].replace(" ", "")
-    assert '"subject":"ResetyourVeyapassword"' not in captured["body"].replace(" ", "")
-    assert "Reset your Veya password" in captured["body"]
+    assert captured["body"] == {
+        "from": "Veya <test@example.com>",
+        "to": ["creator@example.com"],
+        "subject": "Reset your Veya password",
+        "html": "<p>Reset</p>",
+    }
