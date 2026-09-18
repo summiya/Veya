@@ -112,3 +112,9 @@ class InstagramComment(Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    safety = relationship(
+        "CommentSafety",
+        back_populates="comment",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
