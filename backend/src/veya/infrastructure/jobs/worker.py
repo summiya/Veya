@@ -9,6 +9,7 @@ from veya.application.background_sync.service import BackgroundSyncService
 from veya.application.instagram.sync_service import InstagramSyncError
 from veya.core.config import settings
 from veya.core.logging import configure_logging
+from veya.core.runtime import validate_runtime_configuration
 from veya.infrastructure.database.session import SessionLocal
 
 
@@ -74,6 +75,7 @@ def _mark_enqueue_failed(job_id: int, error_message: str) -> None:
 
 async def on_startup(ctx) -> None:
     configure_logging(level=settings.log_level)
+    validate_runtime_configuration()
     logger.info("Worker started", extra={"event": "worker_started"})
 
 
