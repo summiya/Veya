@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from veya.api.dependencies.authentication import get_current_user
@@ -21,6 +22,7 @@ from veya.application.instagram.service import (
 )
 from veya.application.instagram.sync_service import InstagramSyncError, InstagramSyncService
 from veya.domain.users.models import User
+from veya.core.config import settings
 from veya.core.config import settings
 from veya.infrastructure.database.dependencies import get_db
 
