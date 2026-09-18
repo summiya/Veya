@@ -27,6 +27,7 @@ class InstagramAccountRepository:
             self.db.scalars(
                 select(InstagramAccount)
                 .where(
+                    InstagramAccount.connection_status == "connected",
                     InstagramAccount.sync_status != "running",
                     or_(
                         InstagramAccount.next_sync_at.is_(None),
@@ -78,5 +79,12 @@ class InstagramAccountRepository:
             account.access_token_encrypted = access_token_encrypted
             account.token_expires_at = token_expires_at
 
+        account.connection_status = "connected"
+        account.last_api_error_code = None
+        account.last_api_error_message = None
         self.db.flush()
         return account
+
+    def delete(self, account: InstagramAccount) -> None:
+        self.db.delete(account)
+        self.db.flush()
