@@ -172,3 +172,102 @@ For a public beta, prefer:
 - secret-manager supplied environment variables
 
 The repository remains provider-neutral so the hosting provider can be selected later without changing application architecture.
+
+
+## Security hardening
+
+### Authentication rate limits
+
+Production uses Redis-backed fixed-window throttling for sensitive authentication routes.
+
+Current defaults:
+
+- login: 10 requests/minute per client IP
+- signup: 20 requests/hour per client IP
+- forgot password: 5 requests/hour per client IP
+- reset password: 10 requests/hour per client IP
+- refresh token: 60 requests/minute per client IP
+
+Rate-limit identifiers are SHA-256 hashes of client IPs; raw IPs are not stored as Redis keys.
+
+Rate-limited requests return HTTP 429 with:
+
+- Retry-After
+- X-RateLimit-Limit
+- X-RateLimit-Remaining
+- X-RateLimit-Reset
+
+In production, rate limiting and trusted proxy headers are required by startup validation.
+
+The Nginx production proxy overwrites X-Forwarded-For with the actual remote address so callers cannot spoof a different IP to bypass throttling.
+
+### Frontend security headers
+
+Production Nginx emits:
+
+- X-Content-Type-Options
+- X-Frame-Options
+- Referrer-Policy
+- Permissions-Policy
+- Content-Security-Policy
+
+## Secret generation
+
+Generate strong local secret values with:
+
+```bash
+python scripts/generate_secrets.py
+```
+
+The script prints values for:
+
+- POSTGRES_PASSWORD
+- REDIS_PASSWORD
+- JWT_SECRET_KEY
+- INSTAGRAM_TOKEN_ENCRYPTION_KEY
+
+Copy them directly into a secret manager. Never commit generated output.
+
+## PostgreSQL backups
+
+Create a custom-format backup:
+
+```bash
+BACKUP_DIR=/secure/backups sh scripts/backup_postgres.sh
+```
+
+The script creates:
+
+- `veya-<UTC timestamp>.dump`
+- matching SHA-256 checksum file
+
+Verify a backup:
+
+```bash
+sh scripts/verify_postgres_backup.sh /secure/backups/veya-....dump
+```
+
+Verification checks the checksum and confirms PostgreSQL can read the custom-format archive.
+
+Production backups should be copied to encrypted object storage with lifecycle retention and access controls.
+
+### Restore
+
+Restores are destructive and intentionally require an explicit guard:
+
+```bash
+ALLOW_DATABASE_RESTORE=yes \
+  sh scripts/restore_postgres.sh /secure/backups/veya-....dump
+```
+
+Before restore:
+
+1. Enter maintenance mode.
+2. Stop API/worker writes.
+3. Take a final pre-restore backup.
+4. Verify the selected backup.
+5. Perform the restore.
+6. Run API/database smoke tests.
+7. Resume traffic.
+
+CI creates and verifies a real backup archive from the production Docker stack on every change.
