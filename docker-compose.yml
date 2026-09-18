@@ -15,16 +15,45 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg://veya:veya@db:5432/veya
+      REDIS_URL: redis://redis:6379/0
       ENVIRONMENT: development
     ports:
       - "8000:8000"
     depends_on:
       db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    command: ["arq", "veya.infrastructure.jobs.worker.WorkerSettings"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://veya:veya@db:5432/veya
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      INSTAGRAM_CLIENT_ID: ${INSTAGRAM_CLIENT_ID:-}
+      INSTAGRAM_CLIENT_SECRET: ${INSTAGRAM_CLIENT_SECRET:-}
+      INSTAGRAM_REDIRECT_URI: ${INSTAGRAM_REDIRECT_URI:-http://localhost:8000/api/integrations/instagram/callback}
+      INSTAGRAM_TOKEN_ENCRYPTION_KEY: ${INSTAGRAM_TOKEN_ENCRYPTION_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
