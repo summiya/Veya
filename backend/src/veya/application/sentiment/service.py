@@ -67,6 +67,40 @@ class SentimentService:
         self.db.commit()
         return AnalyzeSentimentResult(analyzed_comments=analyzed)
 
+    def analyze_pending_account(
+        self,
+        *,
+        user: User,
+        account_id: int,
+    ) -> AnalyzeSentimentResult:
+        account = self._get_owned_account(user=user, account_id=account_id)
+
+        comments = list(
+            self.db.scalars(
+                select(InstagramComment)
+                .join(InstagramMedia)
+                .outerjoin(
+                    CommentSentiment,
+                    CommentSentiment.instagram_comment_id == InstagramComment.id,
+                )
+                .where(
+                    InstagramMedia.instagram_account_id == account.id,
+                    CommentSentiment.id.is_(None),
+                )
+                .order_by(InstagramComment.id.asc())
+            )
+        )
+
+        for comment in comments:
+            classification = self.provider.classify(comment.text)
+            self.sentiments.upsert(
+                instagram_comment_id=comment.id,
+                classification=classification,
+            )
+
+        self.db.commit()
+        return AnalyzeSentimentResult(analyzed_comments=len(comments))
+
     def account_summary(self, *, user: User, account_id: int) -> SentimentBreakdown:
         account = self._get_owned_account(user=user, account_id=account_id)
         return self._summary_for_account(account.id)

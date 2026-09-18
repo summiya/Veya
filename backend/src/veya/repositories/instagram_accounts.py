@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from veya.domain.instagram.models import InstagramAccount
@@ -8,11 +10,29 @@ class InstagramAccountRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def get_by_id(self, account_id: int) -> InstagramAccount | None:
+        return self.db.get(InstagramAccount, account_id)
+
     def get_by_user_id(self, user_id: int) -> list[InstagramAccount]:
         return list(
             self.db.scalars(
                 select(InstagramAccount)
                 .where(InstagramAccount.user_id == user_id)
+                .order_by(InstagramAccount.id.asc())
+            )
+        )
+
+    def list_due_for_sync(self, now: datetime) -> list[InstagramAccount]:
+        return list(
+            self.db.scalars(
+                select(InstagramAccount)
+                .where(
+                    InstagramAccount.sync_status != "running",
+                    or_(
+                        InstagramAccount.next_sync_at.is_(None),
+                        InstagramAccount.next_sync_at <= now,
+                    ),
+                )
                 .order_by(InstagramAccount.id.asc())
             )
         )

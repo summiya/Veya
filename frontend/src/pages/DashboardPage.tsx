@@ -368,6 +368,23 @@ export function DashboardPage() {
                   ))}
                 </select>
               </label>
+
+              <div className="auto-sync-status">
+                <span className={`auto-sync-dot auto-sync-dot--${selectedAccount?.sync_status ?? "idle"}`} />
+                <div>
+                  <strong>
+                    Automatic sync {selectedAccount?.sync_status === "failed" ? "needs attention" : "enabled"}
+                  </strong>
+                  <small>
+                    {selectedAccount?.last_synced_at
+                      ? `Last synced ${new Date(selectedAccount.last_synced_at).toLocaleString()}`
+                      : "Waiting for the first background sync"}
+                  </small>
+                  {selectedAccount?.last_sync_error ? (
+                    <small className="auto-sync-error">{selectedAccount.last_sync_error}</small>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
             <button
@@ -376,7 +393,7 @@ export function DashboardPage() {
               onClick={() => void handleSyncAndAnalyze()}
               type="button"
             >
-              {isWorking ? "Syncing & analyzing…" : "Sync & analyze"}
+              {isWorking ? "Syncing & analyzing…" : "Sync now"}
             </button>
           </section>
 

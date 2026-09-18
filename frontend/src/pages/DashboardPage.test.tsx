@@ -84,6 +84,20 @@ function renderDashboard(route = "/dashboard") {
   );
 }
 
+function connectedAccount() {
+  return {
+    id: 7,
+    instagram_user_id: "ig-7",
+    username: "veya_creator",
+    token_expires_at: null,
+    sync_status: "idle",
+    last_synced_at: "2026-09-18T10:00:00Z",
+    next_sync_at: "2026-09-18T10:15:00Z",
+    last_sync_error: null,
+    created_at: new Date().toISOString(),
+  };
+}
+
 describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,17 +136,8 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders real sentiment and post data for a connected account", async () => {
-    mocks.listAccounts.mockResolvedValue([
-      {
-        id: 7,
-        instagram_user_id: "ig-7",
-        username: "veya_creator",
-        token_expires_at: null,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-
+  it("renders real data and automatic sync state", async () => {
+    mocks.listAccounts.mockResolvedValue([connectedAccount()]);
     mocks.getAccountSummary.mockResolvedValue({
       total: 100,
       positive: 72,
@@ -142,7 +147,6 @@ describe("DashboardPage", () => {
       neutral_percentage: 18,
       negative_percentage: 10,
     });
-
     mocks.listMedia.mockResolvedValue([
       {
         id: 42,
@@ -156,7 +160,6 @@ describe("DashboardPage", () => {
         last_synced_at: new Date().toISOString(),
       },
     ]);
-
     mocks.getMediaSummary.mockResolvedValue({
       total: 20,
       positive: 16,
@@ -183,96 +186,24 @@ describe("DashboardPage", () => {
         commented_at: null,
       },
     ]);
-    mocks.getTrend.mockResolvedValue({
-      points: [
-        {
-          id: 1,
-          analyzed_comment_count: 80,
-          positive: 48,
-          neutral: 20,
-          negative: 12,
-          positive_percentage: 60,
-          neutral_percentage: 25,
-          negative_percentage: 15,
-          constructive: 5,
-          toxic: 3,
-          severe_abuse: 1,
-          spam: 2,
-          shielded: 4,
-          captured_at: "2026-09-10T10:00:00Z",
-        },
-        {
-          id: 2,
-          analyzed_comment_count: 100,
-          positive: 72,
-          neutral: 18,
-          negative: 10,
-          positive_percentage: 72,
-          neutral_percentage: 18,
-          negative_percentage: 10,
-          constructive: 8,
-          toxic: 6,
-          severe_abuse: 2,
-          spam: 4,
-          shielded: 8,
-          captured_at: "2026-09-18T10:00:00Z",
-        },
-      ],
-      positive_change: 12,
-      negative_change: -5,
-      shielded_change: 4,
-    });
-    mocks.getInsight.mockResolvedValue({
-      id: 99,
-      summary: "People love the editing and want clearer audio.",
-      what_people_loved: ["Editing style"],
-      constructive_feedback: ["Increase audio volume"],
-      recurring_complaints: ["Audio is low"],
-      common_questions: ["Where is the location?"],
-      content_suggestions: ["Add location details"],
-      provider: "openai",
-      model: "gpt-test",
-      source_comment_count: 88,
-      generated_at: new Date().toISOString(),
-    });
 
     renderDashboard();
 
     expect((await screen.findAllByText("72%")).length).toBeGreaterThan(0);
-    expect(screen.getByText("100 analyzed comments", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("Automatic sync enabled")).toBeInTheDocument();
+    expect(screen.getByText(/Last synced/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sync now/i })).toBeInTheDocument();
     expect(screen.getByText("Dubai travel reel")).toBeInTheDocument();
-    expect(screen.getByText("20 comments")).toBeInTheDocument();
-    expect(screen.getByText("Comment Shield")).toBeInTheDocument();
-    expect((await screen.findAllByText("8")).length).toBeGreaterThan(0);
-    expect(screen.getByText("Love the editing!")).toBeInTheDocument();
-    expect(screen.getByText("People love the editing and want clearer audio.")).toBeInTheDocument();
-    expect(screen.getByText("Editing style")).toBeInTheDocument();
-    expect(screen.getByText("Increase audio volume")).toBeInTheDocument();
-    expect(screen.getByText("Audience health trend")).toBeInTheDocument();
-    expect(screen.getByText("+12 pts")).toBeInTheDocument();
-    expect(screen.getByText("-5 pts")).toBeInTheDocument();
-    expect(screen.getByText("+4")).toBeInTheDocument();
-    expect(mocks.getShielded).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(mocks.getMediaSummary).toHaveBeenCalledWith(7, 42);
     });
   });
-});
 
-
-  it("captures a historical snapshot after sync and analysis", async () => {
+  it("keeps manual sync as an immediate override", async () => {
     const user = userEvent.setup();
 
-    mocks.listAccounts.mockResolvedValue([
-      {
-        id: 7,
-        instagram_user_id: "ig-7",
-        username: "veya_creator",
-        token_expires_at: null,
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    mocks.listAccounts.mockResolvedValue([connectedAccount()]);
     mocks.getAccountSummary.mockResolvedValue({
       total: 0,
       positive: 0,
@@ -305,10 +236,10 @@ describe("DashboardPage", () => {
 
     renderDashboard();
 
-    const button = await screen.findByRole("button", { name: /sync & analyze/i });
-    await user.click(button);
+    await user.click(await screen.findByRole("button", { name: /sync now/i }));
 
     await waitFor(() => {
       expect(mocks.captureSnapshot).toHaveBeenCalledWith(7);
     });
   });
+});

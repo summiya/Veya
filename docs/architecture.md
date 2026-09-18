@@ -2,7 +2,7 @@
 
 ## Overview
 
-Veya is a full-stack application with a React frontend, FastAPI backend, PostgreSQL database, Instagram integration, and an NLP sentiment layer.
+Veya is a full-stack creator analytics platform built with React, FastAPI, PostgreSQL, Redis, ARQ workers, Instagram APIs, NLP sentiment/safety analysis, and optional LLM-powered audience insights.
 
 ```text
 React + TypeScript
@@ -10,19 +10,31 @@ React + TypeScript
         v
       FastAPI
         |
-   +----+-------------+
-   |                  |
-   v                  v
-PostgreSQL       Instagram API
-                      |
-                      v
-                 Comment Data
-                      |
-                      v
-               Sentiment Engine
-                      |
-                      v
-                  Analytics
+   +----+--------------------+
+   |                         |
+   v                         v
+PostgreSQL                 Redis
+   ^                         |
+   |                         v
+   |                    ARQ Worker
+   |                         |
+   +-----------+-------------+
+               |
+               v
+         Instagram API
+               |
+               v
+        Media + Comments
+               |
+      +--------+---------+
+      |                  |
+      v                  v
+ Sentiment           Safety
+      |                  |
+      +--------+---------+
+               |
+               v
+      Historical Analytics
 ```
 
 ## Frontend
@@ -33,14 +45,15 @@ Technology:
 - Vite
 
 Responsibilities:
-- Authentication/connection UI
-- Dashboard
-- Post list
-- Post details
+- Authentication and Instagram connection
+- Dashboard analytics
 - Sentiment visualization
-- Future Positive Feed and Comment Shield
+- Comment Shield and safe/constructive feed
+- AI audience insights
+- Historical trends
+- Automatic synchronization status
 
-The frontend should not contain business logic or provider credentials.
+The frontend contains no provider secrets or business persistence logic.
 
 ## Backend
 
@@ -48,8 +61,10 @@ Technology:
 - Python 3.12
 - FastAPI
 - Pydantic
+- SQLAlchemy
+- Alembic
 
-Suggested layers:
+Application layers:
 
 ```text
 api/
@@ -60,19 +75,19 @@ repositories/
 ```
 
 ### API layer
-HTTP routing, request validation, response models.
+HTTP routing, authentication dependencies, request validation, and response models.
 
 ### Application layer
-Use-case orchestration.
+Use-case orchestration such as authentication, Instagram sync, sentiment, safety, insights, analytics, and background synchronization.
 
 ### Domain layer
-Sentiment concepts and product rules independent of infrastructure.
+Persistent business entities and product concepts.
 
 ### Infrastructure layer
-Instagram, database, NLP, LLM, and other external systems.
+Instagram API, token encryption, NLP providers, LLM providers, Redis/ARQ jobs, and database infrastructure.
 
 ### Repository layer
-Persistence abstractions and implementations.
+Persistence access isolated from controllers and application services.
 
 ## Database
 
@@ -81,55 +96,113 @@ Technology:
 - SQLAlchemy
 - Alembic
 
-Initial entities may include:
-
+Current major entities include:
 - users
+- refresh_tokens
 - instagram_accounts
-- media
-- comments
+- instagram_media
+- instagram_comments
 - comment_sentiments
-- profile_snapshots
-- post_analytics
+- comment_safety
+- audience_insights
+- audience_health_snapshots
+- instagram_sync_jobs
+
+## Background synchronization
+
+Redis and ARQ provide the asynchronous job layer.
+
+```text
+ARQ scheduler
+     |
+     v
+Due Instagram account
+     |
+     v
+instagram_sync_jobs
+     |
+     v
+ARQ worker
+     |
+     +--> Instagram media/comment upsert
+     |
+     +--> Pending sentiment analysis only
+     |
+     +--> Pending safety analysis only
+     |
+     +--> Audience health snapshot
+     |
+     v
+last_synced_at / next_sync_at
+```
+
+The default account synchronization interval is 15 minutes.
+
+The worker scheduler checks for due accounts every minute. Both the sync interval and retry behavior are environment-configurable.
+
+ARQ may execute a job more than once after interruption, so the workflow is deliberately idempotent:
+- Instagram media/comments are upserted by external IDs.
+- Background sentiment only processes comments without a sentiment row.
+- Background safety only processes comments without a safety row.
+- Sync-job state is persisted in PostgreSQL.
+
+### Retry behavior
+
+A sync job moves through:
+
+```text
+queued
+  -> running
+  -> completed
+
+or
+
+queued
+  -> running
+  -> retrying
+  -> running
+  -> failed
+```
+
+Failures and attempt counts are retained for diagnostics.
 
 ## AI architecture
 
-### Per-comment sentiment
+### High-volume classification
 
-Use a dedicated NLP classifier for:
-- Positive
-- Neutral
-- Negative
-
-This path should be efficient and relatively inexpensive.
+Dedicated providers handle per-comment classification:
+- sentiment
+- creator safety
 
 ### Higher-level intelligence
 
-Future LLM capabilities:
-- Theme extraction
-- Constructive feedback summaries
-- Common complaint summaries
-- Audience insight generation
+The LLM layer handles grouped/high-level analysis:
+- audience summaries
+- themes
+- constructive feedback
+- recurring complaints
+- common questions
+- content suggestions
 
-LLM providers must remain replaceable.
+LLM providers remain replaceable behind application interfaces.
 
-## Infrastructure
+## Local Docker environment
 
-Local development:
-- Docker Compose
-- Backend container
-- Frontend container
-- PostgreSQL container
-
-Future infrastructure, only when justified:
+Docker Compose currently runs:
+- FastAPI backend
+- React frontend
+- PostgreSQL
 - Redis
-- Background workers
-- Job queues
-- Scheduled synchronization
+- ARQ worker
+
+The worker waits for the backend healthcheck so Alembic migrations finish before the scheduler begins querying background-sync tables.
 
 ## Security
 
-- Secrets must stay in environment variables.
-- Instagram credentials must never be exposed to the browser.
-- OAuth/access tokens should be encrypted at rest in production.
-- Use least-privilege API permissions.
-- Validate all external inputs.
+- Secrets stay in environment variables.
+- Instagram credentials never reach the browser.
+- Instagram access tokens are encrypted before persistence.
+- OAuth state is signed and short-lived.
+- JWT refresh tokens are revocable.
+- Background job APIs remain scoped to the authenticated account owner.
+- Shielded comment text is not fetched by the frontend unless explicitly revealed.

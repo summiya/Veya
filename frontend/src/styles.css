@@ -915,3 +915,56 @@ button { cursor: pointer; }
     grid-template-columns: repeat(12, minmax(58px, 1fr));
   }
 }
+
+
+.auto-sync-status {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  color: #6b5b7d;
+}
+
+.auto-sync-status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.auto-sync-status strong {
+  color: #3b284d;
+  font-size: .88rem;
+}
+
+.auto-sync-status small {
+  color: #7c6d8d;
+}
+
+.auto-sync-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, .12);
+}
+
+.auto-sync-dot--running,
+.auto-sync-dot--queued,
+.auto-sync-dot--retrying {
+  animation: sync-pulse 1.4s ease-in-out infinite;
+}
+
+.auto-sync-dot--failed {
+  background: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, .12);
+}
+
+.auto-sync-error {
+  max-width: 520px;
+  color: #b91c1c !important;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
+}

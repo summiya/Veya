@@ -94,6 +94,12 @@ jobs:
       - name: Check PostgreSQL
         run: docker compose exec -T db pg_isready -U veya -d veya
 
+      - name: Check Redis
+        run: docker compose exec -T redis redis-cli ping | grep PONG
+
+      - name: Check worker
+        run: docker compose ps --status running worker | grep worker
+
       - name: Show logs on failure
         if: failure()
         run: docker compose logs
