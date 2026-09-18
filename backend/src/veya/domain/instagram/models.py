@@ -46,6 +46,11 @@ class InstagramAccount(Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    health_snapshots = relationship(
+        "AudienceHealthSnapshot",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
 
 
 class InstagramMedia(Base):
