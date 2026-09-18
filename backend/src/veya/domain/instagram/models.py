@@ -22,6 +22,10 @@ class InstagramAccount(Base):
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     access_token_encrypted: Mapped[str] = mapped_column(String(2048), nullable=False)
     token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(32), nullable=False, default="idle")
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
+    last_sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -48,6 +52,11 @@ class InstagramAccount(Base):
     )
     health_snapshots = relationship(
         "AudienceHealthSnapshot",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+    sync_jobs = relationship(
+        "InstagramSyncJob",
         back_populates="account",
         cascade="all, delete-orphan",
     )
