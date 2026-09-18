@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     instagram_authorize_url: str = "https://www.instagram.com/oauth/authorize"
     instagram_token_url: str = "https://api.instagram.com/oauth/access_token"
     instagram_graph_url: str = "https://graph.instagram.com"
+    instagram_long_lived_token_url: str = "https://graph.instagram.com/access_token"
+    instagram_refresh_token_url: str = "https://graph.instagram.com/refresh_access_token"
+    instagram_token_refresh_before_days: int = 7
     instagram_scopes: str = (
         "instagram_business_basic,instagram_business_manage_comments"
     )
