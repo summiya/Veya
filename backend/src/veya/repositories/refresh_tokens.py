@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from veya.domain.authentication.models import RefreshToken
@@ -21,4 +21,15 @@ class RefreshTokenRepository:
 
     def revoke(self, token: RefreshToken) -> None:
         token.revoked_at = datetime.now(timezone.utc)
+        self.db.flush()
+
+    def revoke_all_for_user(self, user_id: int) -> None:
+        self.db.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
         self.db.flush()
