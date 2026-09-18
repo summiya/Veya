@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   getShielded: vi.fn(),
   getInsight: vi.fn(),
   generateInsight: vi.fn(),
+  getTrend: vi.fn(),
+  captureSnapshot: vi.fn(),
   logout: vi.fn(),
 }));
 
@@ -66,6 +69,13 @@ vi.mock("../services/insights-service", () => ({
   },
 }));
 
+vi.mock("../services/analytics-service", () => ({
+  analyticsService: {
+    getTrend: mocks.getTrend,
+    captureSnapshot: mocks.captureSnapshot,
+  },
+}));
+
 function renderDashboard(route = "/dashboard") {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -89,6 +99,12 @@ describe("DashboardPage", () => {
     mocks.getFeed.mockResolvedValue([]);
     mocks.getShielded.mockResolvedValue([]);
     mocks.getInsight.mockResolvedValue(null);
+    mocks.getTrend.mockResolvedValue({
+      points: [],
+      positive_change: null,
+      negative_change: null,
+      shielded_change: null,
+    });
   });
 
   it("shows the Instagram connection state for a new user", async () => {
@@ -167,6 +183,45 @@ describe("DashboardPage", () => {
         commented_at: null,
       },
     ]);
+    mocks.getTrend.mockResolvedValue({
+      points: [
+        {
+          id: 1,
+          analyzed_comment_count: 80,
+          positive: 48,
+          neutral: 20,
+          negative: 12,
+          positive_percentage: 60,
+          neutral_percentage: 25,
+          negative_percentage: 15,
+          constructive: 5,
+          toxic: 3,
+          severe_abuse: 1,
+          spam: 2,
+          shielded: 4,
+          captured_at: "2026-09-10T10:00:00Z",
+        },
+        {
+          id: 2,
+          analyzed_comment_count: 100,
+          positive: 72,
+          neutral: 18,
+          negative: 10,
+          positive_percentage: 72,
+          neutral_percentage: 18,
+          negative_percentage: 10,
+          constructive: 8,
+          toxic: 6,
+          severe_abuse: 2,
+          spam: 4,
+          shielded: 8,
+          captured_at: "2026-09-18T10:00:00Z",
+        },
+      ],
+      positive_change: 12,
+      negative_change: -5,
+      shielded_change: 4,
+    });
     mocks.getInsight.mockResolvedValue({
       id: 99,
       summary: "People love the editing and want clearer audio.",
@@ -193,6 +248,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("People love the editing and want clearer audio.")).toBeInTheDocument();
     expect(screen.getByText("Editing style")).toBeInTheDocument();
     expect(screen.getByText("Increase audio volume")).toBeInTheDocument();
+    expect(screen.getByText("Audience health trend")).toBeInTheDocument();
+    expect(screen.getByText("+12 pts")).toBeInTheDocument();
+    expect(screen.getByText("-5 pts")).toBeInTheDocument();
+    expect(screen.getByText("+4")).toBeInTheDocument();
     expect(mocks.getShielded).not.toHaveBeenCalled();
 
     await waitFor(() => {
@@ -200,3 +259,56 @@ describe("DashboardPage", () => {
     });
   });
 });
+
+
+  it("captures a historical snapshot after sync and analysis", async () => {
+    const user = userEvent.setup();
+
+    mocks.listAccounts.mockResolvedValue([
+      {
+        id: 7,
+        instagram_user_id: "ig-7",
+        username: "veya_creator",
+        token_expires_at: null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    mocks.getAccountSummary.mockResolvedValue({
+      total: 0,
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      positive_percentage: 0,
+      neutral_percentage: 0,
+      negative_percentage: 0,
+    });
+    mocks.listMedia.mockResolvedValue([]);
+    mocks.sync.mockResolvedValue({ media_count: 1, comment_count: 5 });
+    mocks.analyzeAccount.mockResolvedValue({ analyzed_comments: 5 });
+    mocks.analyzeSafety.mockResolvedValue({ analyzed_comments: 5 });
+    mocks.captureSnapshot.mockResolvedValue({
+      id: 1,
+      analyzed_comment_count: 5,
+      positive: 3,
+      neutral: 1,
+      negative: 1,
+      positive_percentage: 60,
+      neutral_percentage: 20,
+      negative_percentage: 20,
+      constructive: 1,
+      toxic: 0,
+      severe_abuse: 0,
+      spam: 0,
+      shielded: 0,
+      captured_at: new Date().toISOString(),
+    });
+
+    renderDashboard();
+
+    const button = await screen.findByRole("button", { name: /sync & analyze/i });
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(mocks.captureSnapshot).toHaveBeenCalledWith(7);
+    });
+  });
