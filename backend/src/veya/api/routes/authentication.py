@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from veya.api.dependencies.authentication import get_current_user
 from veya.api.schemas.authentication import (
     AuthenticationResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     MessageResponse,
+    ResetPasswordRequest,
     RefreshRequest,
     SignupRequest,
     TokenResponse,
@@ -19,6 +21,10 @@ from veya.application.authentication.exceptions import (
     InactiveUserError,
     InvalidCredentialsError,
     InvalidRefreshTokenError,
+)
+from veya.application.authentication.password_recovery import (
+    InvalidPasswordResetTokenError,
+    PasswordRecoveryService,
 )
 from veya.application.authentication.service import AuthenticationService
 from veya.domain.users.models import User
@@ -83,3 +89,36 @@ def logout(payload: LogoutRequest, db: Annotated[Session, Depends(get_db)]) -> M
 @router.get("/me", response_model=UserResponse)
 def me(current_user: Annotated[User, Depends(get_current_user)]) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> MessageResponse:
+    PasswordRecoveryService(db).request_reset(email=str(payload.email))
+    return MessageResponse(
+        message=(
+            "If an active Veya account exists for that email, "
+            "a password reset link has been sent."
+        )
+    )
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> MessageResponse:
+    try:
+        PasswordRecoveryService(db).reset_password(
+            raw_token=payload.token,
+            new_password=payload.password,
+        )
+    except InvalidPasswordResetTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return MessageResponse(message="Password reset successfully")

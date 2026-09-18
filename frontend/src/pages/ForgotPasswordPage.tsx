@@ -3,25 +3,44 @@ import { Link } from "react-router-dom";
 
 import { AuthLayout } from "../components/auth/AuthLayout";
 import { FormField } from "../components/auth/FormField";
+import { ApiError } from "../lib/api";
+import { authService } from "../services/auth-service";
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
 
     if (!email.trim()) {
+      setError("Enter your email address.");
       return;
     }
 
-    setSubmitted(true);
+    setIsSubmitting(true);
+
+    try {
+      await authService.forgotPassword(email.trim());
+      setSubmitted(true);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "We could not process your password reset request.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <AuthLayout
       title="Reset your password"
-      subtitle="Enter your account email. Password-reset delivery will be enabled when the backend mailer flow is added."
+      subtitle="Enter your Veya account email and we’ll send you a secure reset link."
       footer={<Link to="/login">Back to sign in</Link>}
     >
       <form className="auth-form" onSubmit={handleSubmit}>
@@ -32,6 +51,7 @@ export function ForgotPasswordPage() {
           onChange={(event) => {
             setEmail(event.target.value);
             setSubmitted(false);
+            setError("");
           }}
           placeholder="you@example.com"
           required
@@ -41,14 +61,17 @@ export function ForgotPasswordPage() {
 
         {submitted ? (
           <div className="form-banner">
-            The reset screen is ready. Email delivery is not enabled yet because
-            the backend forgot-password endpoint and mail provider still need to
-            be implemented.
+            If an active Veya account exists for that email, we sent a password
+            reset link. Check your inbox and spam folder.
           </div>
         ) : null}
 
-        <button className="primary-button" type="submit">
-          Continue
+        {error ? (
+          <div className="form-banner form-banner--error">{error}</div>
+        ) : null}
+
+        <button className="primary-button" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Sending…" : "Send reset link"}
         </button>
       </form>
     </AuthLayout>

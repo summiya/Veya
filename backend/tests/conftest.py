@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from cryptography.fernet import Fernet
 
-from veya.domain.authentication.models import RefreshToken  # noqa: F401
+from veya.domain.authentication.models import PasswordResetToken, RefreshToken  # noqa: F401
 from veya.domain.analytics.models import AudienceHealthSnapshot  # noqa: F401
 from veya.domain.insights.models import AudienceInsight  # noqa: F401
 from veya.domain.instagram.models import (  # noqa: F401

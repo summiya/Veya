@@ -5,6 +5,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Route element={<LoginPage />} path="/login" />
       <Route element={<SignupPage />} path="/signup" />
       <Route element={<ForgotPasswordPage />} path="/forgot-password" />
+      <Route element={<ResetPasswordPage />} path="/reset-password" />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardPage />} path="/dashboard" />

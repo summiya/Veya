@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    password_reset_expire_minutes: int = 30
+
+    mail_provider: str = "console"
+    resend_api_key: str = ""
+    resend_api_url: str = "https://api.resend.com/emails"
+    mail_from: str = "Veya <onboarding@resend.dev>"
 
     instagram_client_id: str = ""
     instagram_client_secret: str = ""
