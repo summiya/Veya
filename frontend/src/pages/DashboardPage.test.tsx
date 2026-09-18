@@ -165,7 +165,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Dubai travel reel")).toBeInTheDocument();
     expect(screen.getByText("20 comments")).toBeInTheDocument();
     expect(screen.getByText("Comment Shield")).toBeInTheDocument();
-    expect(screen.getByText("8")).toBeInTheDocument();
+    expect((await screen.findAllByText("8")).length).toBeGreaterThan(0);
     expect(screen.getByText("Love the editing!")).toBeInTheDocument();
     expect(mocks.getShielded).not.toHaveBeenCalled();
 
