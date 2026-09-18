@@ -3,6 +3,10 @@ export type InstagramAccount = {
   instagram_user_id: string;
   username: string | null;
   token_expires_at: string | null;
+  sync_status: string;
+  last_synced_at: string | null;
+  next_sync_at: string | null;
+  last_sync_error: string | null;
   created_at: string;
 };
 
