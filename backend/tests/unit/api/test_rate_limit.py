@@ -21,29 +21,24 @@ class FakeRedis:
 
 def make_app(fake_redis: FakeRedis) -> FastAPI:
     app = FastAPI()
-    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware, redis_client=fake_redis)
 
     @app.post("/api/auth/login")
     async def login():
         return {"ok": True}
 
-    stack = app.build_middleware_stack()
-    current = stack
-    while current is not None:
-        if isinstance(current, RateLimitMiddleware):
-            current.redis = fake_redis
-            break
-        current = getattr(current, "app", None)
-
     return app
 
 
 def test_rate_limit_allows_request_and_sets_headers() -> None:
+    original_enabled = settings.rate_limit_enabled
     original_limit = settings.rate_limit_login_per_minute
     try:
+        settings.rate_limit_enabled = True
         settings.rate_limit_login_per_minute = 2
         response = TestClient(make_app(FakeRedis([1]))).post("/api/auth/login")
     finally:
+        settings.rate_limit_enabled = original_enabled
         settings.rate_limit_login_per_minute = original_limit
 
     assert response.status_code == 200
@@ -52,11 +47,14 @@ def test_rate_limit_allows_request_and_sets_headers() -> None:
 
 
 def test_rate_limit_returns_429_after_limit() -> None:
+    original_enabled = settings.rate_limit_enabled
     original_limit = settings.rate_limit_login_per_minute
     try:
+        settings.rate_limit_enabled = True
         settings.rate_limit_login_per_minute = 1
         response = TestClient(make_app(FakeRedis([2]))).post("/api/auth/login")
     finally:
+        settings.rate_limit_enabled = original_enabled
         settings.rate_limit_login_per_minute = original_limit
 
     assert response.status_code == 429
@@ -65,26 +63,32 @@ def test_rate_limit_returns_429_after_limit() -> None:
 
 
 def test_rate_limit_fails_open_when_redis_is_unavailable() -> None:
+    original_enabled = settings.rate_limit_enabled
     original_fail_open = settings.rate_limit_fail_open
     try:
+        settings.rate_limit_enabled = True
         settings.rate_limit_fail_open = True
         response = TestClient(
             make_app(FakeRedis(error=RedisConnectionError("redis unavailable")))
         ).post("/api/auth/login")
     finally:
+        settings.rate_limit_enabled = original_enabled
         settings.rate_limit_fail_open = original_fail_open
 
     assert response.status_code == 200
 
 
 def test_rate_limit_can_fail_closed_when_configured() -> None:
+    original_enabled = settings.rate_limit_enabled
     original_fail_open = settings.rate_limit_fail_open
     try:
+        settings.rate_limit_enabled = True
         settings.rate_limit_fail_open = False
         response = TestClient(
             make_app(FakeRedis(error=RedisConnectionError("redis unavailable")))
         ).post("/api/auth/login")
     finally:
+        settings.rate_limit_enabled = original_enabled
         settings.rate_limit_fail_open = original_fail_open
 
     assert response.status_code == 503
