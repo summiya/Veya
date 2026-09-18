@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from arq import Retry, cron
 from arq.connections import RedisSettings
@@ -7,7 +8,11 @@ from arq.worker import func
 from veya.application.background_sync.service import BackgroundSyncService
 from veya.application.instagram.sync_service import InstagramSyncError
 from veya.core.config import settings
+from veya.core.logging import configure_logging
 from veya.infrastructure.database.session import SessionLocal
+
+
+logger = logging.getLogger("veya.worker")
 
 
 def _redis_settings() -> RedisSettings:
@@ -67,11 +72,20 @@ def _mark_enqueue_failed(job_id: int, error_message: str) -> None:
         )
 
 
+async def on_startup(ctx) -> None:
+    configure_logging(level=settings.log_level)
+    logger.info("Worker started", extra={"event": "worker_started"})
+
+
+async def on_shutdown(ctx) -> None:
+    logger.info("Worker stopped", extra={"event": "worker_stopped"})
+
+
 async def enqueue_due_instagram_accounts(ctx) -> int:
     jobs = await asyncio.to_thread(_prepare_due_jobs)
     enqueued = 0
 
-    for job_id, _account_id in jobs:
+    for job_id, account_id in jobs:
         try:
             await ctx["redis"].enqueue_job(
                 "sync_instagram_account",
@@ -79,11 +93,28 @@ async def enqueue_due_instagram_accounts(ctx) -> int:
                 _job_id=f"veya-instagram-sync-{job_id}",
             )
             enqueued += 1
+            logger.info(
+                "Instagram sync job enqueued",
+                extra={
+                    "event": "instagram_sync_enqueued",
+                    "job_id": job_id,
+                    "account_id": account_id,
+                },
+            )
         except Exception as exc:
             await asyncio.to_thread(
                 _mark_enqueue_failed,
                 job_id,
                 str(exc),
+            )
+            logger.exception(
+                "Instagram sync enqueue failed",
+                extra={
+                    "event": "instagram_sync_enqueue_failed",
+                    "job_id": job_id,
+                    "account_id": account_id,
+                    "error_type": type(exc).__name__,
+                },
             )
 
     return enqueued
@@ -91,9 +122,17 @@ async def enqueue_due_instagram_accounts(ctx) -> int:
 
 async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
     attempt_count = int(ctx.get("job_try", 1))
+    logger.info(
+        "Instagram sync job started",
+        extra={
+            "event": "instagram_sync_started",
+            "job_id": job_id,
+            "attempt_count": attempt_count,
+        },
+    )
 
     try:
-        return await asyncio.to_thread(_run_sync_job, job_id, attempt_count)
+        result = await asyncio.to_thread(_run_sync_job, job_id, attempt_count)
     except InstagramSyncError as exc:
         if exc.reconnect_required:
             await asyncio.to_thread(
@@ -102,13 +141,32 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
                 attempt_count,
                 str(exc),
             )
+            logger.exception(
+                "Instagram sync requires reconnect",
+                extra={
+                    "event": "instagram_sync_reconnect_required",
+                    "job_id": job_id,
+                    "attempt_count": attempt_count,
+                    "error_type": type(exc).__name__,
+                },
+            )
             raise
+
         if attempt_count < settings.background_sync_max_retries:
             await asyncio.to_thread(
                 _mark_retrying,
                 job_id,
                 attempt_count,
                 str(exc),
+            )
+            logger.warning(
+                "Instagram sync retry scheduled",
+                extra={
+                    "event": "instagram_sync_retry_scheduled",
+                    "job_id": job_id,
+                    "attempt_count": attempt_count,
+                    "error_type": type(exc).__name__,
+                },
             )
             raise Retry(
                 defer=settings.background_sync_retry_seconds * attempt_count
@@ -119,6 +177,15 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
             job_id,
             attempt_count,
             str(exc),
+        )
+        logger.exception(
+            "Instagram sync failed",
+            extra={
+                "event": "instagram_sync_failed",
+                "job_id": job_id,
+                "attempt_count": attempt_count,
+                "error_type": type(exc).__name__,
+            },
         )
         raise
     except Exception as exc:
@@ -129,6 +196,15 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
                 attempt_count,
                 str(exc),
             )
+            logger.warning(
+                "Background job retry scheduled",
+                extra={
+                    "event": "background_job_retry_scheduled",
+                    "job_id": job_id,
+                    "attempt_count": attempt_count,
+                    "error_type": type(exc).__name__,
+                },
+            )
             raise Retry(
                 defer=settings.background_sync_retry_seconds * attempt_count
             ) from exc
@@ -139,7 +215,26 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
             attempt_count,
             str(exc),
         )
+        logger.exception(
+            "Background sync failed",
+            extra={
+                "event": "background_sync_failed",
+                "job_id": job_id,
+                "attempt_count": attempt_count,
+                "error_type": type(exc).__name__,
+            },
+        )
         raise
+
+    logger.info(
+        "Instagram sync job completed",
+        extra={
+            "event": "instagram_sync_completed",
+            "job_id": job_id,
+            "attempt_count": attempt_count,
+        },
+    )
+    return result
 
 
 class WorkerSettings:
@@ -159,6 +254,8 @@ class WorkerSettings:
             unique=True,
         )
     ]
+    on_startup = on_startup
+    on_shutdown = on_shutdown
     max_jobs = 4
     health_check_interval = 15
     health_check_key = "veya:worker:health"
