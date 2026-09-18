@@ -144,6 +144,7 @@ def test_expired_token_marks_account_for_reconnect(client: TestClient, db) -> No
 
 def test_disconnect_removes_account_and_imported_data(client: TestClient, db) -> None:
     auth, account = create_account(client, db)
+    account_id = account.id
     db.add(
         InstagramMedia(
             instagram_account_id=account.id,
@@ -155,13 +156,13 @@ def test_disconnect_removes_account_and_imported_data(client: TestClient, db) ->
     db.commit()
 
     response = client.delete(
-        f"/api/integrations/instagram/accounts/{account.id}",
+        f"/api/integrations/instagram/accounts/{account_id}",
         headers=auth_headers(auth),
     )
 
     assert response.status_code == 200
     db.expire_all()
-    assert db.get(InstagramAccount, account.id) is None
+    assert db.get(InstagramAccount, account_id) is None
     assert db.query(InstagramMedia).count() == 0
 
 
