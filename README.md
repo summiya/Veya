@@ -7,6 +7,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/TypeScript-Frontend-3178C6?logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white" />
   <img src="https://img.shields.io/badge/Docker-Containers-2496ED?logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/Instagram-Integration-E4405F?logo=instagram&logoColor=white" />
@@ -233,7 +235,7 @@ flowchart TD
     DB[(🐘 PostgreSQL)]
     CACHE[(⚡ Redis - Future)]
     WORKER[⚙️ Background Worker - Future]
-    UI[🎨 Creator Dashboard - Future]
+    UI[⚛️ React Creator Dashboard]
 
     IG --> CLIENT
     API --> SERVICE
@@ -246,7 +248,7 @@ flowchart TD
     WORKER --> NLP
     WORKER --> DB
     CACHE --> API
-    API --> UI
+    UI --> API
 ```
 
 ---
@@ -306,7 +308,7 @@ veya/
 │       ├── unit/
 │       └── integration/
 │
-├── docker/
+├── frontend/\n│   ├── src/\n│   ├── package.json\n│   └── Dockerfile\n│\n├── docker/
 │
 ├── .github/
 │   └── workflows/
@@ -363,7 +365,7 @@ Benefits:
 
 ---
 
-# 🐘 Database
+## ⚛️ Frontend\n\n### React + TypeScript + Vite\n\nVeya includes a React.js creator dashboard from the foundation phase. The initial UI is a colorful profile-positivity shell, with planned screens for Instagram connection, dashboard analytics, posts, post details, Positive Feed, Comment Shield, AI insights, historical trends, and settings. The frontend is containerized independently and communicates with the FastAPI backend over HTTP.\n\n---\n\n# 🐘 Database
 
 ### PostgreSQL
 
@@ -719,16 +721,16 @@ Week 4    79%  ████████████████
 
 ## 🟣 Phase 1 — Foundation
 
-- [ ] Initialize Python 3.12 project
-- [ ] Add FastAPI
-- [ ] Add application configuration
+- [x] Initialize Python 3.12 project
+- [x] Add FastAPI
+- [x] Add application configuration
 - [ ] Configure Ruff
 - [ ] Configure pytest
-- [ ] Add Dockerfile
-- [ ] Add Docker Compose
-- [ ] Add PostgreSQL
-- [ ] Add SQLAlchemy
-- [ ] Add Alembic
+- [x] Add Dockerfile
+- [x] Add Docker Compose
+- [x] Add PostgreSQL
+- [x] Add SQLAlchemy
+- [x] Add Alembic dependencies
 
 ## 🩷 Phase 2 — Instagram
 
