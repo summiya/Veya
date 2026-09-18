@@ -1,0 +1,78 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #2b1745;
+  background: #fbf8ff;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+.page {
+  min-height: 100vh;
+  padding: 64px 24px;
+  background:
+    radial-gradient(circle at top left, #f5d0fe 0, transparent 32%),
+    radial-gradient(circle at top right, #ddd6fe 0, transparent 28%),
+    #fbf8ff;
+}
+
+.hero, .panel {
+  width: min(960px, 100%);
+  margin: 0 auto;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-weight: 800;
+  letter-spacing: .18em;
+  color: #7c3aed;
+}
+
+h1 {
+  max-width: 760px;
+  font-size: clamp(2.5rem, 7vw, 5.3rem);
+  line-height: .98;
+  margin: 18px 0;
+}
+
+.hero p {
+  max-width: 650px;
+  font-size: 1.15rem;
+  color: #6b5b7d;
+}
+
+.panel {
+  margin-top: 48px;
+  padding: 28px;
+  border: 1px solid #eadcff;
+  border-radius: 28px;
+  background: rgba(255,255,255,.78);
+  box-shadow: 0 24px 70px rgba(76, 29, 149, .12);
+}
+
+.muted { color: #7c6d8d; margin: 0; }
+.score { font-size: 4rem; color: #7c3aed; }
+
+.grid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.card {
+  padding: 20px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid #efe7f7;
+  display: grid;
+  gap: 8px;
+}
+
+.card strong { font-size: 1.7rem; }
+.card small { color: #7c6d8d; }
+
+@media (max-width: 700px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
