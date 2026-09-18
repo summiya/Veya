@@ -34,7 +34,7 @@ jobs:
         run: pytest -q
 
       - name: Validate operations scripts
-        working-directory: ..
+        working-directory: ${{ github.workspace }}
         run: |
           sh -n scripts/backup_postgres.sh
           sh -n scripts/verify_postgres_backup.sh
