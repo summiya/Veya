@@ -77,6 +77,7 @@ export function DashboardPage() {
   const [media, setMedia] = useState<MediaWithSentiment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -182,6 +183,43 @@ export function DashboardPage() {
           : "We could not start the Instagram connection.",
       );
       setIsWorking(false);
+    }
+  }
+
+  async function handleCheckConnection() {
+    if (!selectedAccountId) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    setIsCheckingConnection(true);
+
+    try {
+      const result = await instagramService.checkConnection(selectedAccountId);
+      setAccounts((current) =>
+        current.map((account) =>
+          account.id === result.account.id ? result.account : account,
+        ),
+      );
+      setNotice(
+        result.token_refreshed
+          ? "Instagram connection is healthy and the access token was refreshed."
+          : "Instagram connection is healthy.",
+      );
+    } catch (caught) {
+      try {
+        setAccounts(await instagramService.listAccounts());
+      } catch {
+        // Preserve the original connection-check error.
+      }
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "We could not verify this Instagram connection.",
+      );
+    } finally {
+      setIsCheckingConnection(false);
     }
   }
 
@@ -369,11 +407,44 @@ export function DashboardPage() {
                 </select>
               </label>
 
+              <div className="connection-health">
+                <span
+                  className={`connection-health__dot connection-health__dot--${selectedAccount?.connection_status ?? "connected"}`}
+                />
+                <div>
+                  <strong>
+                    Instagram {
+                      selectedAccount?.connection_status === "reconnect_required"
+                        ? "needs reconnection"
+                        : selectedAccount?.connection_status === "degraded"
+                          ? "connection degraded"
+                          : "connected"
+                    }
+                  </strong>
+                  <small>
+                    {selectedAccount?.last_connection_check_at
+                      ? `Last checked ${new Date(selectedAccount.last_connection_check_at).toLocaleString()}`
+                      : "Connection health has not been checked yet"}
+                  </small>
+                  {selectedAccount?.last_api_error_message ? (
+                    <small className="auto-sync-error">
+                      {selectedAccount.last_api_error_message}
+                    </small>
+                  ) : null}
+                </div>
+              </div>
+
               <div className="auto-sync-status">
                 <span className={`auto-sync-dot auto-sync-dot--${selectedAccount?.sync_status ?? "idle"}`} />
                 <div>
                   <strong>
-                    Automatic sync {selectedAccount?.sync_status === "failed" ? "needs attention" : "enabled"}
+                    Automatic sync {
+                      selectedAccount?.connection_status !== "connected"
+                        ? "paused"
+                        : selectedAccount?.sync_status === "failed"
+                          ? "needs attention"
+                          : "enabled"
+                    }
                   </strong>
                   <small>
                     {selectedAccount?.last_synced_at
@@ -387,14 +458,38 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <button
-              className="primary-button"
-              disabled={isWorking}
-              onClick={() => void handleSyncAndAnalyze()}
-              type="button"
-            >
-              {isWorking ? "Syncing & analyzing…" : "Sync now"}
-            </button>
+            <div className="dashboard-toolbar__actions">
+              {selectedAccount?.connection_status === "reconnect_required" ? (
+                <button
+                  className="secondary-button"
+                  disabled={isWorking}
+                  onClick={() => void handleConnectInstagram()}
+                  type="button"
+                >
+                  Reconnect Instagram
+                </button>
+              ) : (
+                <button
+                  className="secondary-button"
+                  disabled={isCheckingConnection}
+                  onClick={() => void handleCheckConnection()}
+                  type="button"
+                >
+                  {isCheckingConnection ? "Checking…" : "Check connection"}
+                </button>
+              )}
+
+              <button
+                className="primary-button"
+                disabled={
+                  isWorking || selectedAccount?.connection_status !== "connected"
+                }
+                onClick={() => void handleSyncAndAnalyze()}
+                type="button"
+              >
+                {isWorking ? "Syncing & analyzing…" : "Sync now"}
+              </button>
+            </div>
           </section>
 
           <section className="sentiment-overview">
