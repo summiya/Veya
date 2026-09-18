@@ -7,10 +7,12 @@ import { instagramService } from "../services/instagram-service";
 import { sentimentService } from "../services/sentiment-service";
 import { safetyService } from "../services/safety-service";
 import { insightsService } from "../services/insights-service";
+import { analyticsService } from "../services/analytics-service";
 import type { InstagramAccount, InstagramMedia } from "../types/instagram";
 import type { SentimentSummary } from "../types/sentiment";
 import type { SafetyComment, SafetySummary } from "../types/safety";
 import type { AudienceInsight } from "../types/insights";
+import type { AudienceTrend } from "../types/analytics";
 
 type MediaWithSentiment = {
   media: InstagramMedia;
@@ -37,8 +39,24 @@ const EMPTY_SAFETY: SafetySummary = {
   shielded: 0,
 };
 
+const EMPTY_TREND: AudienceTrend = {
+  points: [],
+  positive_change: null,
+  negative_change: null,
+  shielded_change: null,
+};
+
 function percentage(value: number): string {
   return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+function signedChange(value: number | null, suffix = ""): string {
+  if (value === null) {
+    return "Not enough history";
+  }
+
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${value}${suffix}`;
 }
 
 export function DashboardPage() {
@@ -55,6 +73,7 @@ export function DashboardPage() {
   const [isShieldRevealed, setIsShieldRevealed] = useState(false);
   const [audienceInsight, setAudienceInsight] = useState<AudienceInsight | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [trend, setTrend] = useState<AudienceTrend>(EMPTY_TREND);
   const [media, setMedia] = useState<MediaWithSentiment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
@@ -67,14 +86,21 @@ export function DashboardPage() {
   );
 
   const loadAccountData = useCallback(async (accountId: number) => {
-    const [accountSummary, accountSafety, accountFeed, accountMedia, currentInsight] =
-      await Promise.all([
-        sentimentService.getAccountSummary(accountId),
-        safetyService.getSummary(accountId),
-        safetyService.getFeed(accountId),
-        instagramService.listMedia(accountId),
-        insightsService.getCurrent(accountId),
-      ]);
+    const [
+      accountSummary,
+      accountSafety,
+      accountFeed,
+      accountMedia,
+      currentInsight,
+      accountTrend,
+    ] = await Promise.all([
+      sentimentService.getAccountSummary(accountId),
+      safetyService.getSummary(accountId),
+      safetyService.getFeed(accountId),
+      instagramService.listMedia(accountId),
+      insightsService.getCurrent(accountId),
+      analyticsService.getTrend(accountId, 30),
+    ]);
 
     const mediaWithSentiment = await Promise.all(
       accountMedia.map(async (item) => ({
@@ -89,6 +115,7 @@ export function DashboardPage() {
     setShieldedComments([]);
     setIsShieldRevealed(false);
     setAudienceInsight(currentInsight);
+    setTrend(accountTrend);
     setMedia(mediaWithSentiment);
   }, []);
 
@@ -107,6 +134,7 @@ export function DashboardPage() {
         setShieldedComments([]);
         setIsShieldRevealed(false);
         setAudienceInsight(null);
+        setTrend(EMPTY_TREND);
         setMedia([]);
         return;
       }
@@ -172,6 +200,7 @@ export function DashboardPage() {
         sentimentService.analyzeAccount(selectedAccountId),
         safetyService.analyzeAccount(selectedAccountId),
       ]);
+      await analyticsService.captureSnapshot(selectedAccountId);
       await loadAccountData(selectedAccountId);
 
       setNotice(
@@ -386,6 +415,62 @@ export function DashboardPage() {
                 <small>{summary.negative.toLocaleString()} comments</small>
               </article>
             </div>
+          </section>
+
+          <section className="trends-section">
+            <div className="section-heading">
+              <div>
+                <p className="auth-kicker">Historical analytics</p>
+                <h2>Audience health trend</h2>
+              </div>
+              <p>Last 30 days · {trend.points.length} snapshots</p>
+            </div>
+
+            <div className="trend-summary-grid">
+              <article>
+                <span>Positive change</span>
+                <strong>{signedChange(trend.positive_change, " pts")}</strong>
+              </article>
+              <article>
+                <span>Negative change</span>
+                <strong>{signedChange(trend.negative_change, " pts")}</strong>
+              </article>
+              <article>
+                <span>Shielded change</span>
+                <strong>{signedChange(trend.shielded_change)}</strong>
+              </article>
+            </div>
+
+            {trend.points.length === 0 ? (
+              <div className="empty-posts">
+                <h3>No historical snapshots yet</h3>
+                <p>
+                  Each successful “Sync & analyze” will now save an audience-health
+                  snapshot so you can see how sentiment changes over time.
+                </p>
+              </div>
+            ) : (
+              <div className="trend-chart" aria-label="Audience positivity trend">
+                {trend.points.slice(-12).map((point) => (
+                  <div className="trend-point" key={point.id}>
+                    <div className="trend-bar-track">
+                      <div
+                        aria-label={`${point.positive_percentage}% positive`}
+                        className="trend-bar"
+                        style={{ height: `${Math.max(point.positive_percentage, 4)}%` }}
+                      />
+                    </div>
+                    <strong>{percentage(point.positive_percentage)}</strong>
+                    <small>
+                      {new Date(point.captured_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="safety-section">
