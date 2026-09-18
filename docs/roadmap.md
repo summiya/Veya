@@ -28,8 +28,10 @@ Status: Complete
 - Protected current-user endpoint
 - React authentication screens
 
-Remaining:
-- Forgot-password backend/email delivery
+- Forgot/reset password
+- Secure one-time reset tokens
+- Transactional mailer abstraction
+- Resend provider
 
 ## Phase 3 - Instagram Integration
 
@@ -43,9 +45,13 @@ Status: Complete for the current MVP
 - Idempotent persistence
 - Account-scoped APIs
 
-Remaining:
-- Production Meta app configuration
-- Broader rate-limit/error telemetry
+- Long-lived Meta token lifecycle
+- Connection health/reconnect flow
+- Structured Meta API error handling
+
+Remaining externally:
+- Production Meta app configuration and App Review
+- Validation with a real Business/Creator account
 
 ## Phase 4 - Sentiment MVP
 
@@ -112,9 +118,18 @@ Status: Complete in this feature
 
 ## Next Phases
 
-### Phase 9 - Account recovery and notifications
+### Phase 9 - Account recovery
+
+Status: Complete
+
 - Forgot/reset password backend
+- Secure one-time reset tokens
 - Mailer provider
+- Resend adapter
+- React recovery flow
+- Session revocation after reset
+
+Remaining notification work:
 - Sync failure notifications
 - Optional weekly audience digest
 
@@ -125,11 +140,25 @@ Status: Complete in this feature
 - Model quality benchmark dataset
 
 ### Phase 11 - Production readiness
-- Production deployment
-- Observability
+
+Status: In progress
+
+Complete in repository:
+- Production Docker images
+- One-shot migration service
+- Nginx React serving
+- JSON structured logging
+- Request IDs
+- Liveness/readiness endpoints
+- Production configuration validation
+- Production Docker CI smoke test
+
+Remaining:
+- Choose and configure production hosting
+- Managed database backups
+- Secret-manager integration
 - Rate limiting
-- Database backups
-- Secret/key management
+- Error monitoring/alerting platform
 - Meta webhook support
 - Operational dashboards
 

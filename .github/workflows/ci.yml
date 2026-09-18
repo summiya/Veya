@@ -107,3 +107,69 @@ jobs:
       - name: Stop stack
         if: always()
         run: docker compose down -v
+
+
+  production-docker:
+    name: Production Docker
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    env:
+      POSTGRES_DB: veya
+      POSTGRES_USER: veya
+      POSTGRES_PASSWORD: ci-postgres-password
+      REDIS_PASSWORD: ci-redis-password
+      JWT_SECRET_KEY: ci-jwt-secret-key-that-is-definitely-longer-than-32-bytes
+      FRONTEND_APP_URL: https://app.example.com
+      MAIL_PROVIDER: resend
+      RESEND_API_KEY: ci-resend-key
+      MAIL_FROM: Veya <noreply@example.com>
+      INSTAGRAM_CLIENT_ID: ci-instagram-client
+      INSTAGRAM_CLIENT_SECRET: ci-instagram-secret
+      INSTAGRAM_REDIRECT_URI: https://api.example.com/api/integrations/instagram/callback
+      INSTAGRAM_TOKEN_ENCRYPTION_KEY: ci-encryption-key
+      OPENAI_API_KEY: ""
+      HTTP_PORT: "8080"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate production Compose
+        run: docker compose -f docker-compose.production.yml config
+
+      - name: Build production containers
+        run: docker compose -f docker-compose.production.yml build
+
+      - name: Start production stack
+        run: docker compose -f docker-compose.production.yml up -d
+
+      - name: Wait for backend readiness
+        run: |
+          for i in {1..40}; do
+            if docker compose -f docker-compose.production.yml exec -T backend               python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"               >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f docker-compose.production.yml logs
+          exit 1
+
+      - name: Check production frontend
+        run: |
+          curl --fail --silent http://localhost:8080/ >/dev/null
+          curl --fail --silent --head http://localhost:8080/ | grep -i "server: nginx"
+
+      - name: Check migration completed
+        run: docker compose -f docker-compose.production.yml ps -a migrate
+
+      - name: Check production worker
+        run: docker compose -f docker-compose.production.yml ps --status running worker | grep worker
+
+      - name: Show production logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.production.yml logs
+
+      - name: Stop production stack
+        if: always()
+        run: docker compose -f docker-compose.production.yml down -v

@@ -206,3 +206,20 @@ The worker waits for the backend healthcheck so Alembic migrations finish before
 - JWT refresh tokens are revocable.
 - Background job APIs remain scoped to the authenticated account owner.
 - Shielded comment text is not fetched by the frontend unless explicitly revealed.
+
+
+## Production runtime and observability
+
+Production uses separate API, worker, migration, and frontend containers.
+
+Operational controls include:
+- JSON logs to stdout
+- request correlation through `X-Request-ID`
+- `/health/live` for process liveness
+- `/health/ready` for PostgreSQL/Redis readiness
+- fail-fast validation for production secrets and HTTPS callback URLs
+- worker lifecycle/job event logging
+- one-shot Alembic migration before API startup
+- Nginx-served React production assets
+
+See [Production Deployment](./production-deployment.md) for the deployment contract.
