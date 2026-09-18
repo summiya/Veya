@@ -107,9 +107,21 @@ class InstagramConnectionHealthService:
         account_id: int,
     ) -> InstagramConnectionCheck:
         account = self._get_owned_account(user=user, account_id=account_id)
-        self._ensure_current_token(account=account, force=True)
+        now = datetime.now(timezone.utc)
+        last_refresh = self._aware(account.last_token_refreshed_at)
+
+        if last_refresh is not None and last_refresh > now - timedelta(hours=24):
+            return InstagramConnectionCheck(
+                account=account,
+                token_refreshed=False,
+            )
+
+        _, refreshed = self._ensure_current_token(account=account, force=True)
         self.db.refresh(account)
-        return InstagramConnectionCheck(account=account, token_refreshed=True)
+        return InstagramConnectionCheck(
+            account=account,
+            token_refreshed=refreshed,
+        )
 
     def _ensure_current_token(
         self,
