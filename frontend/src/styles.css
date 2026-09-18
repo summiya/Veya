@@ -968,3 +968,15 @@ button { cursor: pointer; }
   0%, 100% { opacity: .45; }
   50% { opacity: 1; }
 }
+
+
+.auth-button-link {
+  display: inline-grid;
+  place-items: center;
+  text-align: center;
+  text-decoration: none;
+}
+
+.auth-button-link:hover {
+  text-decoration: none;
+}
