@@ -22,6 +22,6 @@ if [ -f "${CHECKSUM_FILE}" ]; then
 fi
 
 echo "Restoring PostgreSQL database from ${BACKUP_FILE}..." >&2
-cat "${BACKUP_FILE}" | docker compose -f "${COMPOSE_FILE}" exec -T db sh -c   'pg_restore --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB" -'
+cat "${BACKUP_FILE}" | docker compose -f "${COMPOSE_FILE}" exec -T db sh -c   'pg_restore --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
 echo "Restore complete. Run application smoke tests before leaving maintenance mode." >&2
