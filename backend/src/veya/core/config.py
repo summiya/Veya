@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     background_sync_retry_seconds: int = 30
 
     trust_proxy_headers: bool = False
-    rate_limit_enabled: bool = True
+    rate_limit_enabled: bool = False
     rate_limit_fail_open: bool = True
     rate_limit_login_per_minute: int = 10
     rate_limit_signup_per_hour: int = 20
