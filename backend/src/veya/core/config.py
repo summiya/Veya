@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     insights_max_comments: int = 200
     insights_max_comment_chars: int = 600
 
+    redis_url: str = "redis://redis:6379/0"
+    background_sync_interval_minutes: int = 15
+    background_sync_scheduler_seconds: int = 60
+    background_sync_max_retries: int = 3
+    background_sync_retry_seconds: int = 30
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
