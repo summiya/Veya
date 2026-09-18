@@ -2,6 +2,7 @@ from sqlalchemy import select
 
 from veya.application.insights.provider import AudienceInsightsResult
 from veya.application.insights.service import AudienceInsightsService
+from veya.infrastructure.insights.openai import OpenAIAudienceInsightsProvider
 from veya.domain.insights.models import AudienceInsight
 from veya.domain.instagram.models import InstagramAccount, InstagramComment, InstagramMedia
 from veya.domain.safety.models import CommentSafety
@@ -230,3 +231,45 @@ def test_empty_safe_comment_set_skips_llm(client, db) -> None:
     assert insight.source_comment_count == 0
     assert provider.comments == []
     assert insight.provider == "system"
+
+
+def test_generate_api_returns_and_persists_structured_insight(
+    client,
+    db,
+    monkeypatch,
+) -> None:
+    auth, _, account = seed_insight_data(client, db)
+
+    monkeypatch.setattr(
+        OpenAIAudienceInsightsProvider,
+        "generate",
+        lambda self, comments: AudienceInsightsResult(
+            summary="People love the editing and want clearer audio.",
+            what_people_loved=["Editing"],
+            constructive_feedback=["Increase audio volume"],
+            recurring_complaints=["Low audio"],
+            common_questions=["Where is the location?"],
+            content_suggestions=["Add location details"],
+            provider="openai",
+            model="fake-test-model",
+        ),
+    )
+
+    response = client.post(
+        f"/api/insights/instagram/accounts/{account.id}/generate",
+        headers={"Authorization": f"Bearer {auth['access_token']}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"] == "People love the editing and want clearer audio."
+    assert body["what_people_loved"] == ["Editing"]
+    assert body["source_comment_count"] == 2
+
+    saved = client.get(
+        f"/api/insights/instagram/accounts/{account.id}",
+        headers={"Authorization": f"Bearer {auth['access_token']}"},
+    )
+
+    assert saved.status_code == 200
+    assert saved.json()["id"] == body["id"]
