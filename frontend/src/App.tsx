@@ -1,37 +1,24 @@
-const cards = [
-  { label: "Positive", value: "74%", icon: "❤️" },
-  { label: "Neutral", value: "17%", icon: "😐" },
-  { label: "Negative", value: "6%", icon: "⚠️" },
-  { label: "Toxic filtered", value: "3%", icon: "🛡️" },
-];
+import { Navigate, Route, Routes } from "react-router-dom";
+
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { DashboardPage } from "./pages/DashboardPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
 
 export default function App() {
   return (
-    <main className="page">
-      <section className="hero">
-        <span className="eyebrow">VEYA</span>
-        <h1>Understand your audience without absorbing the negativity.</h1>
-        <p>
-          A creator-focused sentiment dashboard for turning social comments into
-          healthier, useful insights.
-        </p>
-      </section>
+    <Routes>
+      <Route element={<Navigate replace to="/login" />} path="/" />
+      <Route element={<LoginPage />} path="/login" />
+      <Route element={<SignupPage />} path="/signup" />
+      <Route element={<ForgotPasswordPage />} path="/forgot-password" />
 
-      <section className="panel">
-        <div>
-          <p className="muted">Profile positivity</p>
-          <strong className="score">74%</strong>
-        </div>
-        <div className="grid">
-          {cards.map((card) => (
-            <article className="card" key={card.label}>
-              <span>{card.icon}</span>
-              <strong>{card.value}</strong>
-              <small>{card.label}</small>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
+      <Route element={<ProtectedRoute />}>
+        <Route element={<DashboardPage />} path="/dashboard" />
+      </Route>
+
+      <Route element={<Navigate replace to="/" />} path="*" />
+    </Routes>
   );
 }
