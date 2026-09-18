@@ -69,6 +69,22 @@ def test_callback_persists_connected_account(
         ),
     )
     monkeypatch.setattr(
+        "veya.infrastructure.instagram.client.InstagramClient.exchange_long_lived_token",
+        lambda self, **kwargs: InstagramTokenResult(
+            access_token="fake-long-lived-token",
+            instagram_user_id="ig-123",
+            expires_at=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "veya.infrastructure.instagram.client.InstagramClient.exchange_long_lived_token",
+        lambda self, **kwargs: InstagramTokenResult(
+            access_token="fake-long-lived-token",
+            instagram_user_id="ig-123",
+            expires_at=None,
+        ),
+    )
+    monkeypatch.setattr(
         "veya.infrastructure.instagram.client.InstagramClient.get_profile",
         lambda self, access_token, instagram_user_id: InstagramProfile(
             instagram_user_id="ig-123",
@@ -94,6 +110,7 @@ def test_callback_persists_connected_account(
 
     assert accounts.status_code == 200
     assert accounts.json()[0]["instagram_user_id"] == "ig-123"
+    assert accounts.json()[0]["connection_status"] == "connected"
     assert "access_token" not in accounts.json()[0]
     assert "access_token_encrypted" not in accounts.json()[0]
 
