@@ -12,6 +12,10 @@ const mocks = vi.hoisted(() => ({
   analyzeAccount: vi.fn(),
   getAccountSummary: vi.fn(),
   getMediaSummary: vi.fn(),
+  analyzeSafety: vi.fn(),
+  getSafetySummary: vi.fn(),
+  getFeed: vi.fn(),
+  getShielded: vi.fn(),
   logout: vi.fn(),
 }));
 
@@ -44,6 +48,15 @@ vi.mock("../services/sentiment-service", () => ({
   },
 }));
 
+vi.mock("../services/safety-service", () => ({
+  safetyService: {
+    analyzeAccount: mocks.analyzeSafety,
+    getSummary: mocks.getSafetySummary,
+    getFeed: mocks.getFeed,
+    getShielded: mocks.getShielded,
+  },
+}));
+
 function renderDashboard(route = "/dashboard") {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -55,6 +68,17 @@ function renderDashboard(route = "/dashboard") {
 describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getSafetySummary.mockResolvedValue({
+      total: 0,
+      safe: 0,
+      constructive: 0,
+      toxic: 0,
+      severe_abuse: 0,
+      spam: 0,
+      shielded: 0,
+    });
+    mocks.getFeed.mockResolvedValue([]);
+    mocks.getShielded.mockResolvedValue([]);
   });
 
   it("shows the Instagram connection state for a new user", async () => {
@@ -116,6 +140,23 @@ describe("DashboardPage", () => {
       neutral_percentage: 15,
       negative_percentage: 5,
     });
+    mocks.getSafetySummary.mockResolvedValue({
+      total: 100,
+      safe: 80,
+      constructive: 8,
+      toxic: 6,
+      severe_abuse: 2,
+      spam: 4,
+      shielded: 8,
+    });
+    mocks.getFeed.mockResolvedValue([
+      {
+        id: 1,
+        text: "Love the editing!",
+        username: "viewer",
+        commented_at: null,
+      },
+    ]);
 
     renderDashboard();
 
@@ -123,6 +164,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("100 analyzed comments", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("Dubai travel reel")).toBeInTheDocument();
     expect(screen.getByText("20 comments")).toBeInTheDocument();
+    expect(screen.getByText("Comment Shield")).toBeInTheDocument();
+    expect(screen.getByText("8")).toBeInTheDocument();
+    expect(screen.getByText("Love the editing!")).toBeInTheDocument();
+    expect(mocks.getShielded).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(mocks.getMediaSummary).toHaveBeenCalledWith(7, 42);
