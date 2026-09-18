@@ -1,0 +1,23 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
+
+WORKDIR /app
+
+RUN addgroup --system veya && adduser --system --ingroup veya veya
+
+COPY pyproject.toml .
+COPY src ./src
+COPY alembic.ini .
+COPY alembic ./alembic
+
+RUN pip install --no-cache-dir . \
+    && chown -R veya:veya /app
+
+USER veya
+
+EXPOSE 8000
+
+CMD ["uvicorn", "veya.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
