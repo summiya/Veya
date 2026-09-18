@@ -8,7 +8,28 @@ from veya.core.config import settings
 
 
 class InstagramApiError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        code: str | None = None,
+        subcode: str | None = None,
+        trace_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.subcode = subcode
+        self.trace_id = trace_id
+
+    @property
+    def requires_reconnect(self) -> bool:
+        return self.code == "190" or self.status_code in {401, 403}
+
+    @property
+    def retryable(self) -> bool:
+        return self.status_code in {429, 500, 502, 503, 504}
 
 
 @dataclass(frozen=True)
@@ -48,6 +69,9 @@ class InstagramClient:
         self.http = http_client or httpx.Client(timeout=15.0)
 
     def build_authorization_url(self, *, state: str) -> str:
+        if not settings.instagram_client_id:
+            raise InstagramApiError("INSTAGRAM_CLIENT_ID is not configured")
+
         query = urlencode(
             {
                 "client_id": settings.instagram_client_id,
@@ -60,59 +84,120 @@ class InstagramClient:
         return f"{settings.instagram_authorize_url}?{query}"
 
     def exchange_code(self, code: str) -> InstagramTokenResult:
-        try:
-            response = self.http.post(
-                settings.instagram_token_url,
-                data={
-                    "client_id": settings.instagram_client_id,
-                    "client_secret": settings.instagram_client_secret,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": settings.instagram_redirect_uri,
-                    "code": code,
-                },
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise InstagramApiError("Instagram token exchange failed") from exc
+        if not settings.instagram_client_id or not settings.instagram_client_secret:
+            raise InstagramApiError("Instagram OAuth credentials are not configured")
 
-        body = response.json()
+        response = self.http.post(
+            settings.instagram_token_url,
+            data={
+                "client_id": settings.instagram_client_id,
+                "client_secret": settings.instagram_client_secret,
+                "grant_type": "authorization_code",
+                "redirect_uri": settings.instagram_redirect_uri,
+                "code": code,
+            },
+        )
+        body = self._parse_response(
+            response,
+            error_message="Instagram token exchange failed",
+        )
+
         access_token = body.get("access_token")
         user_id = body.get("user_id")
 
         if not access_token or user_id is None:
             raise InstagramApiError("Instagram token response is incomplete")
 
-        expires_in = body.get("expires_in")
-        expires_at = None
-        if isinstance(expires_in, int):
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-
         return InstagramTokenResult(
             access_token=str(access_token),
             instagram_user_id=str(user_id),
-            expires_at=expires_at,
+            expires_at=self._expires_at(body.get("expires_in")),
+        )
+
+    def exchange_long_lived_token(
+        self,
+        *,
+        short_lived_token: str,
+        instagram_user_id: str,
+    ) -> InstagramTokenResult:
+        if not settings.instagram_client_secret:
+            raise InstagramApiError("INSTAGRAM_CLIENT_SECRET is not configured")
+
+        response = self.http.get(
+            settings.instagram_long_lived_token_url,
+            params={
+                "grant_type": "ig_exchange_token",
+                "client_secret": settings.instagram_client_secret,
+                "access_token": short_lived_token,
+            },
+        )
+        body = self._parse_response(
+            response,
+            error_message="Instagram long-lived token exchange failed",
+        )
+
+        access_token = body.get("access_token")
+        if not access_token:
+            raise InstagramApiError("Instagram long-lived token response is incomplete")
+
+        return InstagramTokenResult(
+            access_token=str(access_token),
+            instagram_user_id=instagram_user_id,
+            expires_at=self._expires_at(body.get("expires_in")),
+        )
+
+    def refresh_long_lived_token(
+        self,
+        *,
+        access_token: str,
+        instagram_user_id: str,
+    ) -> InstagramTokenResult:
+        response = self.http.get(
+            settings.instagram_refresh_token_url,
+            params={
+                "grant_type": "ig_refresh_token",
+                "access_token": access_token,
+            },
+        )
+        body = self._parse_response(
+            response,
+            error_message="Instagram token refresh failed",
+        )
+
+        refreshed_token = body.get("access_token")
+        if not refreshed_token:
+            raise InstagramApiError("Instagram token refresh response is incomplete")
+
+        return InstagramTokenResult(
+            access_token=str(refreshed_token),
+            instagram_user_id=instagram_user_id,
+            expires_at=self._expires_at(body.get("expires_in")),
         )
 
     def get_profile(self, access_token: str, instagram_user_id: str) -> InstagramProfile:
-        try:
-            response = self.http.get(
-                f"{settings.instagram_graph_url}/{instagram_user_id}",
-                params={
-                    "fields": "id,username",
-                    "access_token": access_token,
-                },
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise InstagramApiError("Instagram profile request failed") from exc
+        response = self.http.get(
+            f"{settings.instagram_graph_url}/{instagram_user_id}",
+            params={
+                "fields": "id,username",
+                "access_token": access_token,
+            },
+        )
+        body = self._parse_response(
+            response,
+            error_message="Instagram profile request failed",
+        )
 
-        body = response.json()
         return InstagramProfile(
             instagram_user_id=str(body.get("id", instagram_user_id)),
             username=body.get("username"),
         )
 
-    def list_media(self, *, access_token: str, instagram_user_id: str) -> list[InstagramMediaItem]:
+    def list_media(
+        self,
+        *,
+        access_token: str,
+        instagram_user_id: str,
+    ) -> list[InstagramMediaItem]:
         url = f"{settings.instagram_graph_url}/{instagram_user_id}/media"
         params: dict[str, str] | None = {
             "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp",
@@ -121,7 +206,11 @@ class InstagramClient:
         items: list[InstagramMediaItem] = []
 
         while url:
-            body = self._get_json(url, params=params, error_message="Instagram media request failed")
+            body = self._get_json(
+                url,
+                params=params,
+                error_message="Instagram media request failed",
+            )
             params = None
 
             for raw in body.get("data", []):
@@ -155,7 +244,11 @@ class InstagramClient:
         items: list[InstagramCommentItem] = []
 
         while url:
-            body = self._get_json(url, params=params, error_message="Instagram comments request failed")
+            body = self._get_json(
+                url,
+                params=params,
+                error_message="Instagram comments request failed",
+            )
             params = None
 
             for raw in body.get("data", []):
@@ -179,16 +272,49 @@ class InstagramClient:
         params: dict[str, str] | None,
         error_message: str,
     ) -> dict:
+        response = self.http.get(url, params=params)
+        return self._parse_response(response, error_message=error_message)
+
+    @staticmethod
+    def _parse_response(response: httpx.Response, *, error_message: str) -> dict:
         try:
-            response = self.http.get(url, params=params)
-            response.raise_for_status()
             body = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise InstagramApiError(error_message) from exc
+        except ValueError as exc:
+            raise InstagramApiError(
+                error_message,
+                status_code=response.status_code,
+            ) from exc
+
+        if response.is_error:
+            raw_error = body.get("error", {}) if isinstance(body, dict) else {}
+            message = raw_error.get("message") or error_message
+            code = raw_error.get("code")
+            subcode = raw_error.get("error_subcode")
+            trace_id = raw_error.get("fbtrace_id")
+            raise InstagramApiError(
+                str(message),
+                status_code=response.status_code,
+                code=str(code) if code is not None else None,
+                subcode=str(subcode) if subcode is not None else None,
+                trace_id=str(trace_id) if trace_id is not None else None,
+            )
 
         if not isinstance(body, dict):
-            raise InstagramApiError(error_message)
+            raise InstagramApiError(
+                error_message,
+                status_code=response.status_code,
+            )
         return body
+
+    @staticmethod
+    def _expires_at(expires_in) -> datetime | None:
+        if expires_in is None:
+            return None
+        try:
+            seconds = int(expires_in)
+        except (TypeError, ValueError):
+            return None
+        return datetime.now(timezone.utc) + timedelta(seconds=seconds)
 
     @staticmethod
     def _parse_timestamp(value: str | None) -> datetime | None:
