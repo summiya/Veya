@@ -8,6 +8,7 @@ import { DashboardPage } from "./DashboardPage";
 const mocks = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   connect: vi.fn(),
+  checkConnection: vi.fn(),
   sync: vi.fn(),
   listMedia: vi.fn(),
   analyzeAccount: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("../services/instagram-service", () => ({
   instagramService: {
     listAccounts: mocks.listAccounts,
     connect: mocks.connect,
+    checkConnection: mocks.checkConnection,
     sync: mocks.sync,
     listMedia: mocks.listMedia,
   },
@@ -90,6 +92,11 @@ function connectedAccount() {
     instagram_user_id: "ig-7",
     username: "veya_creator",
     token_expires_at: null,
+    connection_status: "connected",
+    last_connection_check_at: "2026-09-18T09:55:00Z",
+    last_token_refreshed_at: "2026-09-10T10:00:00Z",
+    last_api_error_code: null,
+    last_api_error_message: null,
     sync_status: "idle",
     last_synced_at: "2026-09-18T10:00:00Z",
     next_sync_at: "2026-09-18T10:15:00Z",
@@ -190,7 +197,11 @@ describe("DashboardPage", () => {
     renderDashboard();
 
     expect((await screen.findAllByText("72%")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Instagram connected")).toBeInTheDocument();
     expect(screen.getByText("Automatic sync enabled")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /check connection/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Last synced/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sync now/i })).toBeInTheDocument();
     expect(screen.getByText("Dubai travel reel")).toBeInTheDocument();
@@ -241,5 +252,74 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(mocks.captureSnapshot).toHaveBeenCalledWith(7);
     });
+  });
+});
+
+
+describe("Instagram connection health", () => {
+  it("shows reconnect state and pauses manual sync", async () => {
+    const account = {
+      ...connectedAccount(),
+      connection_status: "reconnect_required",
+      last_api_error_code: "190",
+      last_api_error_message: "Invalid OAuth access token.",
+    };
+
+    mocks.listAccounts.mockResolvedValue([account]);
+    mocks.getAccountSummary.mockResolvedValue({
+      total: 0,
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      positive_percentage: 0,
+      neutral_percentage: 0,
+      negative_percentage: 0,
+    });
+    mocks.listMedia.mockResolvedValue([]);
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText("Instagram needs reconnection"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /reconnect instagram/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Automatic sync paused")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sync now/i })).toBeDisabled();
+  });
+
+  it("checks connection health from the dashboard", async () => {
+    const user = userEvent.setup();
+    const account = connectedAccount();
+
+    mocks.listAccounts.mockResolvedValue([account]);
+    mocks.getAccountSummary.mockResolvedValue({
+      total: 0,
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      positive_percentage: 0,
+      neutral_percentage: 0,
+      negative_percentage: 0,
+    });
+    mocks.listMedia.mockResolvedValue([]);
+    mocks.checkConnection.mockResolvedValue({
+      account,
+      token_refreshed: false,
+    });
+
+    renderDashboard();
+
+    await user.click(
+      await screen.findByRole("button", { name: /check connection/i }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.checkConnection).toHaveBeenCalledWith(7);
+    });
+    expect(
+      screen.getByText("Instagram connection is healthy."),
+    ).toBeInTheDocument();
   });
 });
