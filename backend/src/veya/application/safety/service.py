@@ -64,6 +64,40 @@ class SafetyService:
         self.db.commit()
         return SafetyAnalyzeResult(analyzed_comments=len(comments))
 
+    def analyze_pending_account(
+        self,
+        *,
+        user: User,
+        account_id: int,
+    ) -> SafetyAnalyzeResult:
+        account = self._get_owned_account(user=user, account_id=account_id)
+
+        comments = list(
+            self.db.scalars(
+                select(InstagramComment)
+                .join(InstagramMedia)
+                .outerjoin(
+                    CommentSafety,
+                    CommentSafety.instagram_comment_id == InstagramComment.id,
+                )
+                .where(
+                    InstagramMedia.instagram_account_id == account.id,
+                    CommentSafety.id.is_(None),
+                )
+                .order_by(InstagramComment.id.asc())
+            )
+        )
+
+        for comment in comments:
+            classification = self.provider.classify(comment.text)
+            self.safety.upsert(
+                instagram_comment_id=comment.id,
+                classification=classification,
+            )
+
+        self.db.commit()
+        return SafetyAnalyzeResult(analyzed_comments=len(comments))
+
     def account_summary(self, *, user: User, account_id: int) -> SafetySummary:
         account = self._get_owned_account(user=user, account_id=account_id)
 
