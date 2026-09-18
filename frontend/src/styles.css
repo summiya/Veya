@@ -980,3 +980,57 @@ button { cursor: pointer; }
 .auth-button-link:hover {
   text-decoration: none;
 }
+
+
+.connection-health {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+}
+
+.connection-health > div {
+  display: grid;
+  gap: 2px;
+}
+
+.connection-health strong {
+  color: #3b284d;
+  font-size: .88rem;
+}
+
+.connection-health small {
+  color: #7c6d8d;
+}
+
+.connection-health__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, .12);
+}
+
+.connection-health__dot--degraded {
+  background: #d97706;
+  box-shadow: 0 0 0 4px rgba(217, 119, 6, .12);
+}
+
+.connection-health__dot--reconnect_required {
+  background: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, .12);
+}
+
+.dashboard-toolbar__actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 800px) {
+  .dashboard-toolbar__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
