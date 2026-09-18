@@ -21,6 +21,8 @@ class Settings(BaseSettings):
         "instagram_business_basic,instagram_business_manage_comments"
     )
     instagram_token_encryption_key: str = ""
+    frontend_app_url: str = "http://localhost:5173"
+    frontend_app_url: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(
         env_file=".env",

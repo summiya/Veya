@@ -1,6 +1,8 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from veya.api.dependencies.authentication import get_current_user
@@ -20,6 +22,8 @@ from veya.application.instagram.service import (
 )
 from veya.application.instagram.sync_service import InstagramSyncError, InstagramSyncService
 from veya.domain.users.models import User
+from veya.core.config import settings
+from veya.core.config import settings
 from veya.infrastructure.database.dependencies import get_db
 
 
@@ -35,12 +39,12 @@ def connect_instagram(
     return InstagramConnectResponse(authorization_url=authorization_url)
 
 
-@router.get("/callback", response_model=InstagramCallbackResponse)
+@router.get("/callback")
 def instagram_callback(
     code: Annotated[str, Query(min_length=1)],
     state: Annotated[str, Query(min_length=1)],
     db: Annotated[Session, Depends(get_db)],
-) -> InstagramCallbackResponse:
+) -> RedirectResponse:
     try:
         result = InstagramConnectionService(db).connect_from_callback(
             code=code,
@@ -52,9 +56,11 @@ def instagram_callback(
             detail=str(exc),
         ) from exc
 
-    return InstagramCallbackResponse(
-        account=InstagramAccountResponse.model_validate(result.account)
+    redirect_url = (
+        f"{settings.frontend_app_url.rstrip('/')}/dashboard"
+        f"?instagram=connected&account_id={result.account.id}"
     )
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/accounts", response_model=list[InstagramAccountResponse])

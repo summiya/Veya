@@ -79,11 +79,13 @@ def test_callback_persists_connected_account(
     callback = client.get(
         "/api/integrations/instagram/callback",
         params={"code": "fake-oauth-code", "state": state},
+        follow_redirects=False,
     )
 
-    assert callback.status_code == 200
-    assert callback.json()["account"]["instagram_user_id"] == "ig-123"
-    assert callback.json()["account"]["username"] == "veya_creator"
+    assert callback.status_code == 302
+    assert callback.headers["location"].endswith(
+        "/dashboard?instagram=connected&account_id=1"
+    )
 
     accounts = client.get(
         "/api/integrations/instagram/accounts",
@@ -136,8 +138,9 @@ def test_accounts_are_scoped_to_authenticated_user(
     callback = client.get(
         "/api/integrations/instagram/callback",
         params={"code": "fake-oauth-code", "state": state},
+        follow_redirects=False,
     )
-    assert callback.status_code == 200
+    assert callback.status_code == 302
 
     second_signup = client.post(
         "/api/auth/signup",
