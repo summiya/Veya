@@ -22,9 +22,34 @@ def auth_headers(auth: dict) -> dict[str, str]:
     return {"Authorization": f"Bearer {auth['access_token']}"}
 
 
+def mock_instagram_oauth(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "veya.infrastructure.instagram.client.InstagramClient.exchange_code",
+        lambda self, code: InstagramTokenResult(
+            access_token="fake-short-lived-token",
+            instagram_user_id="ig-123",
+            expires_at=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "veya.infrastructure.instagram.client.InstagramClient.exchange_long_lived_token",
+        lambda self, **kwargs: InstagramTokenResult(
+            access_token="fake-long-lived-token",
+            instagram_user_id="ig-123",
+            expires_at=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "veya.infrastructure.instagram.client.InstagramClient.get_profile",
+        lambda self, access_token, instagram_user_id: InstagramProfile(
+            instagram_user_id="ig-123",
+            username="veya_creator",
+        ),
+    )
+
+
 def test_connect_requires_authenticated_user(client: TestClient) -> None:
     response = client.get("/api/integrations/instagram/connect")
-
     assert response.status_code == 401
 
 
@@ -53,44 +78,13 @@ def test_callback_persists_connected_account(
     monkeypatch,
 ) -> None:
     auth = signup(client)
+    mock_instagram_oauth(monkeypatch)
 
     connect = client.get(
         "/api/integrations/instagram/connect",
         headers=auth_headers(auth),
     )
     state = parse_qs(urlparse(connect.json()["authorization_url"]).query)["state"][0]
-
-    monkeypatch.setattr(
-        "veya.infrastructure.instagram.client.InstagramClient.exchange_code",
-        lambda self, code: InstagramTokenResult(
-            access_token="fake-test-access-token",
-            instagram_user_id="ig-123",
-            expires_at=None,
-        ),
-    )
-    monkeypatch.setattr(
-        "veya.infrastructure.instagram.client.InstagramClient.exchange_long_lived_token",
-        lambda self, **kwargs: InstagramTokenResult(
-            access_token="fake-long-lived-token",
-            instagram_user_id="ig-123",
-            expires_at=None,
-        ),
-    )
-    monkeypatch.setattr(
-        "veya.infrastructure.instagram.client.InstagramClient.exchange_long_lived_token",
-        lambda self, **kwargs: InstagramTokenResult(
-            access_token="fake-long-lived-token",
-            instagram_user_id="ig-123",
-            expires_at=None,
-        ),
-    )
-    monkeypatch.setattr(
-        "veya.infrastructure.instagram.client.InstagramClient.get_profile",
-        lambda self, access_token, instagram_user_id: InstagramProfile(
-            instagram_user_id="ig-123",
-            username="veya_creator",
-        ),
-    )
 
     callback = client.get(
         "/api/integrations/instagram/callback",
@@ -109,10 +103,13 @@ def test_callback_persists_connected_account(
     )
 
     assert accounts.status_code == 200
-    assert accounts.json()[0]["instagram_user_id"] == "ig-123"
-    assert accounts.json()[0]["connection_status"] == "connected"
-    assert "access_token" not in accounts.json()[0]
-    assert "access_token_encrypted" not in accounts.json()[0]
+    account = accounts.json()[0]
+    assert account["instagram_user_id"] == "ig-123"
+    assert account["connection_status"] == "connected"
+    assert account["last_connection_check_at"] is not None
+    assert account["last_token_refreshed_at"] is not None
+    assert "access_token" not in account
+    assert "access_token_encrypted" not in account
 
 
 def test_callback_rejects_invalid_state(client: TestClient) -> None:
@@ -120,7 +117,6 @@ def test_callback_rejects_invalid_state(client: TestClient) -> None:
         "/api/integrations/instagram/callback",
         params={"code": "fake-oauth-code", "state": "invalid-state"},
     )
-
     assert response.status_code == 400
 
 
@@ -129,28 +125,13 @@ def test_accounts_are_scoped_to_authenticated_user(
     monkeypatch,
 ) -> None:
     first = signup(client)
+    mock_instagram_oauth(monkeypatch)
 
     connect = client.get(
         "/api/integrations/instagram/connect",
         headers=auth_headers(first),
     )
     state = parse_qs(urlparse(connect.json()["authorization_url"]).query)["state"][0]
-
-    monkeypatch.setattr(
-        "veya.infrastructure.instagram.client.InstagramClient.exchange_code",
-        lambda self, code: InstagramTokenResult(
-            access_token="fake-test-access-token",
-            instagram_user_id="ig-123",
-            expires_at=None,
-        ),
-    )
-    monkeypatch.setattr(
-        "veya.infrastructure.instagram.client.InstagramClient.get_profile",
-        lambda self, access_token, instagram_user_id: InstagramProfile(
-            instagram_user_id="ig-123",
-            username="veya_creator",
-        ),
-    )
 
     callback = client.get(
         "/api/integrations/instagram/callback",
