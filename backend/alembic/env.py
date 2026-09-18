@@ -10,6 +10,7 @@ from veya.domain.instagram.models import (  # noqa: F401
     InstagramComment,
     InstagramMedia,
 )
+from veya.domain.safety.models import CommentSafety  # noqa: F401
 from veya.domain.sentiment.models import CommentSentiment  # noqa: F401
 from veya.domain.users.models import User  # noqa: F401
 from veya.infrastructure.database.session import Base
