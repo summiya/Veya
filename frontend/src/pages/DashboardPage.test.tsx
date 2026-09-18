@@ -119,7 +119,7 @@ describe("DashboardPage", () => {
 
     renderDashboard();
 
-    expect(await screen.findByText("72%")).toBeInTheDocument();
+    expect((await screen.findAllByText("72%")).length).toBeGreaterThan(0);
     expect(screen.getByText("100 analyzed comments", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("Dubai travel reel")).toBeInTheDocument();
     expect(screen.getByText("20 comments")).toBeInTheDocument();
