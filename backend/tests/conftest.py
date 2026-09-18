@@ -38,6 +38,8 @@ TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=Fals
 @pytest.fixture(autouse=True)
 def database() -> Generator[None, None, None]:
     settings.instagram_token_encryption_key = Fernet.generate_key().decode()
+    settings.instagram_client_id = "test-instagram-client"
+    settings.instagram_client_secret = "test-instagram-secret"
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)

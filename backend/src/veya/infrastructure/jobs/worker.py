@@ -5,6 +5,7 @@ from arq.connections import RedisSettings
 from arq.worker import func
 
 from veya.application.background_sync.service import BackgroundSyncService
+from veya.application.instagram.sync_service import InstagramSyncError
 from veya.core.config import settings
 from veya.infrastructure.database.session import SessionLocal
 
@@ -93,6 +94,33 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
 
     try:
         return await asyncio.to_thread(_run_sync_job, job_id, attempt_count)
+    except InstagramSyncError as exc:
+        if exc.reconnect_required:
+            await asyncio.to_thread(
+                _mark_failed,
+                job_id,
+                attempt_count,
+                str(exc),
+            )
+            raise
+        if attempt_count < settings.background_sync_max_retries:
+            await asyncio.to_thread(
+                _mark_retrying,
+                job_id,
+                attempt_count,
+                str(exc),
+            )
+            raise Retry(
+                defer=settings.background_sync_retry_seconds * attempt_count
+            ) from exc
+
+        await asyncio.to_thread(
+            _mark_failed,
+            job_id,
+            attempt_count,
+            str(exc),
+        )
+        raise
     except Exception as exc:
         if attempt_count < settings.background_sync_max_retries:
             await asyncio.to_thread(

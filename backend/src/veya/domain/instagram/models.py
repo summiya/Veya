@@ -22,6 +22,17 @@ class InstagramAccount(Base):
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     access_token_encrypted: Mapped[str] = mapped_column(String(2048), nullable=False)
     token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    connection_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="connected"
+    )
+    last_connection_check_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_token_refreshed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_api_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_api_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     sync_status: Mapped[str] = mapped_column(String(32), nullable=False, default="idle")
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)

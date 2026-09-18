@@ -2,17 +2,22 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from veya.application.instagram.connection_health import (
+    InstagramConnectionHealthError,
+    InstagramConnectionHealthService,
+)
 from veya.domain.instagram.models import InstagramAccount, InstagramMedia
 from veya.domain.users.models import User
 from veya.infrastructure.instagram.client import InstagramApiError, InstagramClient
-from veya.infrastructure.instagram.token_cipher import decrypt_instagram_token
 from veya.repositories.instagram_accounts import InstagramAccountRepository
 from veya.repositories.instagram_comments import InstagramCommentRepository
 from veya.repositories.instagram_media import InstagramMediaRepository
 
 
 class InstagramSyncError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, reconnect_required: bool = False) -> None:
+        super().__init__(message)
+        self.reconnect_required = reconnect_required
 
 
 @dataclass(frozen=True)
@@ -28,10 +33,24 @@ class InstagramSyncService:
         self.accounts = InstagramAccountRepository(db)
         self.media = InstagramMediaRepository(db)
         self.comments = InstagramCommentRepository(db)
+        self.health = InstagramConnectionHealthService(
+            db,
+            client=self.client,
+        )
 
     def sync_account(self, *, user: User, account_id: int) -> InstagramSyncResult:
         account = self._get_owned_account(user=user, account_id=account_id)
-        access_token = decrypt_instagram_token(account.access_token_encrypted)
+
+        try:
+            access_token = self.health.access_token_for_sync(
+                user=user,
+                account_id=account.id,
+            )
+        except InstagramConnectionHealthError as exc:
+            raise InstagramSyncError(
+                str(exc),
+                reconnect_required=exc.reconnect_required,
+            ) from exc
 
         try:
             remote_media = self.client.list_media(
@@ -39,7 +58,15 @@ class InstagramSyncService:
                 instagram_user_id=account.instagram_user_id,
             )
         except InstagramApiError as exc:
-            raise InstagramSyncError(str(exc)) from exc
+            self.health.record_api_error(
+                user=user,
+                account_id=account.id,
+                error=exc,
+            )
+            raise InstagramSyncError(
+                str(exc),
+                reconnect_required=exc.requires_reconnect,
+            ) from exc
 
         media_count = 0
         comment_count = 0
@@ -63,7 +90,15 @@ class InstagramSyncService:
                     instagram_media_id=remote.media_id,
                 )
             except InstagramApiError as exc:
-                raise InstagramSyncError(str(exc)) from exc
+                self.health.record_api_error(
+                    user=user,
+                    account_id=account.id,
+                    error=exc,
+                )
+                raise InstagramSyncError(
+                    str(exc),
+                    reconnect_required=exc.requires_reconnect,
+                ) from exc
 
             for remote_comment in remote_comments:
                 self.comments.upsert(
@@ -75,6 +110,7 @@ class InstagramSyncService:
                 )
                 comment_count += 1
 
+        self.health.record_success(user=user, account_id=account.id)
         self.db.commit()
         return InstagramSyncResult(media_count=media_count, comment_count=comment_count)
 
@@ -103,14 +139,7 @@ class InstagramSyncService:
         return self.comments.get_by_media_id(media.id)
 
     def _get_owned_account(self, *, user: User, account_id: int) -> InstagramAccount:
-        account = next(
-            (
-                account
-                for account in self.accounts.get_by_user_id(user.id)
-                if account.id == account_id
-            ),
-            None,
-        )
-        if account is None:
+        account = self.accounts.get_by_id(account_id)
+        if account is None or account.user_id != user.id:
             raise InstagramSyncError("Instagram account not found")
         return account

@@ -3,6 +3,11 @@ export type InstagramAccount = {
   instagram_user_id: string;
   username: string | null;
   token_expires_at: string | null;
+  connection_status: string;
+  last_connection_check_at: string | null;
+  last_token_refreshed_at: string | null;
+  last_api_error_code: string | null;
+  last_api_error_message: string | null;
   sync_status: string;
   last_synced_at: string | null;
   next_sync_at: string | null;
@@ -25,4 +30,16 @@ export type InstagramMedia = {
 export type InstagramSyncResult = {
   media_count: number;
   comment_count: number;
+};
+
+export type InstagramConnectionCheck = {
+  account: InstagramAccount;
+  token_refreshed: boolean;
+};
+
+export type InstagramReadiness = {
+  configured: boolean;
+  missing_settings: string[];
+  redirect_uri: string;
+  scopes: string[];
 };
