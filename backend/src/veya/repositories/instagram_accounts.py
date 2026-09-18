@@ -27,7 +27,7 @@ class InstagramAccountRepository:
             self.db.scalars(
                 select(InstagramAccount)
                 .where(
-                    InstagramAccount.connection_status == "connected",
+                    InstagramAccount.connection_status != "reconnect_required",
                     InstagramAccount.sync_status != "running",
                     or_(
                         InstagramAccount.next_sync_at.is_(None),
