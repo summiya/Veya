@@ -40,6 +40,12 @@ class InstagramAccount(Base):
         back_populates="account",
         cascade="all, delete-orphan",
     )
+    audience_insight = relationship(
+        "AudienceInsight",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
 
 class InstagramMedia(Base):
