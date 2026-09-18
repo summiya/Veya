@@ -24,6 +24,25 @@ class InstagramProfile:
     username: str | None
 
 
+@dataclass(frozen=True)
+class InstagramMediaItem:
+    media_id: str
+    media_type: str
+    caption: str | None
+    media_url: str | None
+    thumbnail_url: str | None
+    permalink: str | None
+    timestamp: datetime | None
+
+
+@dataclass(frozen=True)
+class InstagramCommentItem:
+    comment_id: str
+    text: str
+    username: str | None
+    timestamp: datetime | None
+
+
 class InstagramClient:
     def __init__(self, http_client: httpx.Client | None = None) -> None:
         self.http = http_client or httpx.Client(timeout=15.0)
@@ -92,3 +111,90 @@ class InstagramClient:
             instagram_user_id=str(body.get("id", instagram_user_id)),
             username=body.get("username"),
         )
+
+    def list_media(self, *, access_token: str, instagram_user_id: str) -> list[InstagramMediaItem]:
+        url = f"{settings.instagram_graph_url}/{instagram_user_id}/media"
+        params: dict[str, str] | None = {
+            "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp",
+            "access_token": access_token,
+        }
+        items: list[InstagramMediaItem] = []
+
+        while url:
+            body = self._get_json(url, params=params, error_message="Instagram media request failed")
+            params = None
+
+            for raw in body.get("data", []):
+                items.append(
+                    InstagramMediaItem(
+                        media_id=str(raw["id"]),
+                        media_type=str(raw.get("media_type", "UNKNOWN")),
+                        caption=raw.get("caption"),
+                        media_url=raw.get("media_url"),
+                        thumbnail_url=raw.get("thumbnail_url"),
+                        permalink=raw.get("permalink"),
+                        timestamp=self._parse_timestamp(raw.get("timestamp")),
+                    )
+                )
+
+            url = body.get("paging", {}).get("next")
+
+        return items
+
+    def list_comments(
+        self,
+        *,
+        access_token: str,
+        instagram_media_id: str,
+    ) -> list[InstagramCommentItem]:
+        url = f"{settings.instagram_graph_url}/{instagram_media_id}/comments"
+        params: dict[str, str] | None = {
+            "fields": "id,text,username,timestamp",
+            "access_token": access_token,
+        }
+        items: list[InstagramCommentItem] = []
+
+        while url:
+            body = self._get_json(url, params=params, error_message="Instagram comments request failed")
+            params = None
+
+            for raw in body.get("data", []):
+                items.append(
+                    InstagramCommentItem(
+                        comment_id=str(raw["id"]),
+                        text=str(raw.get("text", "")),
+                        username=raw.get("username"),
+                        timestamp=self._parse_timestamp(raw.get("timestamp")),
+                    )
+                )
+
+            url = body.get("paging", {}).get("next")
+
+        return items
+
+    def _get_json(
+        self,
+        url: str,
+        *,
+        params: dict[str, str] | None,
+        error_message: str,
+    ) -> dict:
+        try:
+            response = self.http.get(url, params=params)
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise InstagramApiError(error_message) from exc
+
+        if not isinstance(body, dict):
+            raise InstagramApiError(error_message)
+        return body
+
+    @staticmethod
+    def _parse_timestamp(value: str | None) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
