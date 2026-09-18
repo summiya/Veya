@@ -233,8 +233,8 @@ flowchart TD
     NLP[🧠 Sentiment Engine]
     ANALYTICS[📊 Analytics Service]
     DB[(🐘 PostgreSQL)]
-    CACHE[(⚡ Redis - Future)]
-    WORKER[⚙️ Background Worker - Future]
+    CACHE[(⚡ Redis)]
+    WORKER[⚙️ ARQ Background Worker]
     UI[⚛️ React Creator Dashboard]
 
     IG --> CLIENT
