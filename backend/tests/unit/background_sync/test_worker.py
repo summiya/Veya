@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from arq import Retry
 
+from veya.application.instagram.sync_service import InstagramSyncError
 from veya.infrastructure.jobs import worker
 
 
@@ -80,3 +81,42 @@ def test_worker_marks_failed_after_last_attempt(monkeypatch) -> None:
         )
 
     assert failed == [(100, 3, "permanent failure")]
+
+
+def test_worker_does_not_retry_reconnect_required_error(monkeypatch) -> None:
+    failed: list[tuple[int, int, str]] = []
+    retrying: list[tuple[int, int, str]] = []
+
+    def fail(job_id: int, attempt_count: int):
+        raise InstagramSyncError(
+            "Instagram access token has expired; reconnect the account",
+            reconnect_required=True,
+        )
+
+    monkeypatch.setattr(worker, "_run_sync_job", fail)
+    monkeypatch.setattr(
+        worker,
+        "_mark_failed",
+        lambda job_id, attempt_count, error: failed.append(
+            (job_id, attempt_count, error)
+        ),
+    )
+    monkeypatch.setattr(
+        worker,
+        "_mark_retrying",
+        lambda job_id, attempt_count, error: retrying.append(
+            (job_id, attempt_count, error)
+        ),
+    )
+
+    with pytest.raises(InstagramSyncError):
+        asyncio.run(
+            worker.sync_instagram_account(
+                {"job_try": 1},
+                101,
+            )
+        )
+
+    assert len(failed) == 1
+    assert failed[0][0:2] == (101, 1)
+    assert retrying == []
