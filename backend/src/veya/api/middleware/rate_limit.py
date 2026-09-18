@@ -34,9 +34,9 @@ return current
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app):
+    def __init__(self, app, redis_client=None):
         super().__init__(app)
-        self.redis = Redis.from_url(
+        self.redis = redis_client or Redis.from_url(
             settings.redis_url,
             socket_connect_timeout=1,
             socket_timeout=1,
