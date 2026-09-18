@@ -15,6 +15,8 @@ def valid_production_settings() -> Settings:
             "https://api.example.com/api/integrations/instagram/callback"
         ),
         instagram_token_encryption_key="fernet-key",
+        rate_limit_enabled=True,
+        trust_proxy_headers=True,
     )
 
 
@@ -31,6 +33,8 @@ def test_production_rejects_development_security_defaults() -> None:
     )
     config.instagram_token_encryption_key = ""
     config.mail_provider = "console"
+    config.rate_limit_enabled = False
+    config.trust_proxy_headers = False
 
     errors = production_configuration_errors(config)
 
@@ -39,6 +43,8 @@ def test_production_rejects_development_security_defaults() -> None:
     assert any("INSTAGRAM_REDIRECT_URI" in error for error in errors)
     assert any("INSTAGRAM_TOKEN_ENCRYPTION_KEY" in error for error in errors)
     assert any("MAIL_PROVIDER" in error for error in errors)
+    assert any("RATE_LIMIT_ENABLED" in error for error in errors)
+    assert any("TRUST_PROXY_HEADERS" in error for error in errors)
 
 
 def test_development_environment_does_not_require_production_secrets() -> None:
