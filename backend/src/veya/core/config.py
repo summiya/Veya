@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     )
     instagram_token_encryption_key: str = ""
     frontend_app_url: str = "http://localhost:5173"
+    frontend_app_url: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(
         env_file=".env",
