@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from veya.infrastructure.database.session import Base
@@ -35,3 +35,74 @@ class InstagramAccount(Base):
     )
 
     user = relationship("User", back_populates="instagram_accounts")
+    media = relationship(
+        "InstagramMedia",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+
+
+class InstagramMedia(Base):
+    __tablename__ = "instagram_media"
+    __table_args__ = (
+        UniqueConstraint(
+            "instagram_account_id",
+            "instagram_media_id",
+            name="uq_instagram_media_account",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    instagram_account_id: Mapped[int] = mapped_column(
+        ForeignKey("instagram_accounts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    instagram_media_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    media_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    media_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    permalink: Mapped[str | None] = mapped_column(Text, nullable=True)
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    account = relationship("InstagramAccount", back_populates="media")
+    comments = relationship(
+        "InstagramComment",
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
+
+
+class InstagramComment(Base):
+    __tablename__ = "instagram_comments"
+    __table_args__ = (
+        UniqueConstraint(
+            "instagram_media_id",
+            "instagram_comment_id",
+            name="uq_instagram_comment_media",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    instagram_media_id: Mapped[int] = mapped_column(
+        ForeignKey("instagram_media.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    instagram_comment_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_synced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    media = relationship("InstagramMedia", back_populates="comments")

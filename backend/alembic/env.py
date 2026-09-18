@@ -5,7 +5,11 @@ from sqlalchemy import engine_from_config, pool
 
 from veya.core.config import settings
 from veya.domain.authentication.models import RefreshToken  # noqa: F401
-from veya.domain.instagram.models import InstagramAccount  # noqa: F401
+from veya.domain.instagram.models import (  # noqa: F401
+    InstagramAccount,
+    InstagramComment,
+    InstagramMedia,
+)
 from veya.domain.users.models import User  # noqa: F401
 from veya.infrastructure.database.session import Base
 
