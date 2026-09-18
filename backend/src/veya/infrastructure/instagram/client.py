@@ -87,7 +87,7 @@ class InstagramClient:
         if not settings.instagram_client_id or not settings.instagram_client_secret:
             raise InstagramApiError("Instagram OAuth credentials are not configured")
 
-        response = self.http.post(
+        response = self._post_response(
             settings.instagram_token_url,
             data={
                 "client_id": settings.instagram_client_id,
@@ -96,6 +96,7 @@ class InstagramClient:
                 "redirect_uri": settings.instagram_redirect_uri,
                 "code": code,
             },
+            error_message="Instagram token exchange failed",
         )
         body = self._parse_response(
             response,
@@ -123,13 +124,14 @@ class InstagramClient:
         if not settings.instagram_client_secret:
             raise InstagramApiError("INSTAGRAM_CLIENT_SECRET is not configured")
 
-        response = self.http.get(
+        response = self._get_response(
             settings.instagram_long_lived_token_url,
             params={
                 "grant_type": "ig_exchange_token",
                 "client_secret": settings.instagram_client_secret,
                 "access_token": short_lived_token,
             },
+            error_message="Instagram long-lived token exchange failed",
         )
         body = self._parse_response(
             response,
@@ -152,12 +154,13 @@ class InstagramClient:
         access_token: str,
         instagram_user_id: str,
     ) -> InstagramTokenResult:
-        response = self.http.get(
+        response = self._get_response(
             settings.instagram_refresh_token_url,
             params={
                 "grant_type": "ig_refresh_token",
                 "access_token": access_token,
             },
+            error_message="Instagram token refresh failed",
         )
         body = self._parse_response(
             response,
@@ -175,12 +178,13 @@ class InstagramClient:
         )
 
     def get_profile(self, access_token: str, instagram_user_id: str) -> InstagramProfile:
-        response = self.http.get(
+        response = self._get_response(
             f"{settings.instagram_graph_url}/{instagram_user_id}",
             params={
                 "fields": "id,username",
                 "access_token": access_token,
             },
+            error_message="Instagram profile request failed",
         )
         body = self._parse_response(
             response,
@@ -272,8 +276,36 @@ class InstagramClient:
         params: dict[str, str] | None,
         error_message: str,
     ) -> dict:
-        response = self.http.get(url, params=params)
+        response = self._get_response(
+            url,
+            params=params,
+            error_message=error_message,
+        )
         return self._parse_response(response, error_message=error_message)
+
+    def _get_response(
+        self,
+        url: str,
+        *,
+        params: dict[str, str] | None,
+        error_message: str,
+    ) -> httpx.Response:
+        try:
+            return self.http.get(url, params=params)
+        except httpx.HTTPError as exc:
+            raise InstagramApiError(error_message) from exc
+
+    def _post_response(
+        self,
+        url: str,
+        *,
+        data: dict[str, str],
+        error_message: str,
+    ) -> httpx.Response:
+        try:
+            return self.http.post(url, data=data)
+        except httpx.HTTPError as exc:
+            raise InstagramApiError(error_message) from exc
 
     @staticmethod
     def _parse_response(response: httpx.Response, *, error_message: str) -> dict:
