@@ -160,6 +160,7 @@ def test_disconnect_removes_account_and_imported_data(client: TestClient, db) ->
     )
 
     assert response.status_code == 200
+    db.expire_all()
     assert db.get(InstagramAccount, account.id) is None
     assert db.query(InstagramMedia).count() == 0
 
