@@ -78,6 +78,28 @@ class InstagramConnectionHealthService:
         self.db.refresh(account)
         return InstagramConnectionCheck(account=account, token_refreshed=refreshed)
 
+    def record_api_error(
+        self,
+        *,
+        user: User,
+        account_id: int,
+        error: InstagramApiError,
+    ) -> None:
+        account = self._get_owned_account(user=user, account_id=account_id)
+        self._record_error(account=account, error=error, checked=False)
+
+    def record_success(
+        self,
+        *,
+        user: User,
+        account_id: int,
+    ) -> None:
+        account = self._get_owned_account(user=user, account_id=account_id)
+        account.connection_status = "connected"
+        account.last_api_error_code = None
+        account.last_api_error_message = None
+        self.db.commit()
+
     def refresh_token(
         self,
         *,
