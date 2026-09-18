@@ -1,0 +1,16 @@
+from fastapi import FastAPI
+
+from veya.api.routes.health import router as health_router
+
+app = FastAPI(
+    title="Veya API",
+    version="0.1.0",
+    description="Creator-focused social sentiment and wellbeing platform.",
+)
+
+app.include_router(health_router)
+
+
+@app.get("/")
+async def root() -> dict[str, str]:
+    return {"name": "Veya", "status": "running"}
