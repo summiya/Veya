@@ -106,3 +106,9 @@ class InstagramComment(Base):
     )
 
     media = relationship("InstagramMedia", back_populates="comments")
+    sentiment = relationship(
+        "CommentSentiment",
+        back_populates="comment",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
