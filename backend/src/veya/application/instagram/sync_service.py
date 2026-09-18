@@ -15,7 +15,9 @@ from veya.repositories.instagram_media import InstagramMediaRepository
 
 
 class InstagramSyncError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, reconnect_required: bool = False) -> None:
+        super().__init__(message)
+        self.reconnect_required = reconnect_required
 
 
 @dataclass(frozen=True)
@@ -45,7 +47,10 @@ class InstagramSyncService:
                 account_id=account.id,
             )
         except InstagramConnectionHealthError as exc:
-            raise InstagramSyncError(str(exc)) from exc
+            raise InstagramSyncError(
+                str(exc),
+                reconnect_required=exc.reconnect_required,
+            ) from exc
 
         try:
             remote_media = self.client.list_media(
@@ -58,7 +63,10 @@ class InstagramSyncService:
                 account_id=account.id,
                 error=exc,
             )
-            raise InstagramSyncError(str(exc)) from exc
+            raise InstagramSyncError(
+                str(exc),
+                reconnect_required=exc.requires_reconnect,
+            ) from exc
 
         media_count = 0
         comment_count = 0
@@ -87,7 +95,10 @@ class InstagramSyncService:
                     account_id=account.id,
                     error=exc,
                 )
-                raise InstagramSyncError(str(exc)) from exc
+                raise InstagramSyncError(
+                    str(exc),
+                    reconnect_required=exc.requires_reconnect,
+                ) from exc
 
             for remote_comment in remote_comments:
                 self.comments.upsert(
