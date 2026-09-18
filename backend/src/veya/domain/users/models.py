@@ -38,3 +38,8 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    instagram_accounts = relationship(
+        "InstagramAccount",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

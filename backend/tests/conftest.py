@@ -5,11 +5,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from cryptography.fernet import Fernet
 
 from veya.domain.authentication.models import RefreshToken  # noqa: F401
+from veya.domain.instagram.models import InstagramAccount  # noqa: F401
 from veya.domain.users.models import User  # noqa: F401
 from veya.infrastructure.database.dependencies import get_db
 from veya.infrastructure.database.session import Base
+from veya.core.config import settings
 from veya.main import app
 
 
@@ -25,6 +28,7 @@ TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=Fals
 
 @pytest.fixture(autouse=True)
 def database() -> Generator[None, None, None]:
+    settings.instagram_token_encryption_key = Fernet.generate_key().decode()
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
