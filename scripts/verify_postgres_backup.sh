@@ -16,6 +16,6 @@ if [ -f "${CHECKSUM_FILE}" ]; then
   sha256sum -c "${CHECKSUM_FILE}"
 fi
 
-cat "${BACKUP_FILE}" | docker compose -f "${COMPOSE_FILE}" exec -T db   pg_restore --list - >/dev/null
+cat "${BACKUP_FILE}" | docker compose -f "${COMPOSE_FILE}" exec -T db   pg_restore --list >/dev/null
 
 echo "Backup verified: ${BACKUP_FILE}"
