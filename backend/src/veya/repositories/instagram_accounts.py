@@ -22,6 +22,18 @@ class InstagramAccountRepository:
             )
         )
 
+    def get_by_instagram_user_id(
+        self,
+        instagram_user_id: str,
+    ) -> list[InstagramAccount]:
+        return list(
+            self.db.scalars(
+                select(InstagramAccount)
+                .where(InstagramAccount.instagram_user_id == instagram_user_id)
+                .order_by(InstagramAccount.id.asc())
+            )
+        )
+
     def list_due_for_sync(self, now: datetime) -> list[InstagramAccount]:
         return list(
             self.db.scalars(
