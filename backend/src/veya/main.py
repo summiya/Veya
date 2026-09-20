@@ -14,12 +14,14 @@ from veya.api.routes.safety import router as safety_router
 from veya.api.routes.sentiment import router as sentiment_router
 from veya.core.config import settings
 from veya.core.logging import configure_logging
+from veya.core.monitoring import initialize_error_monitoring
 from veya.core.runtime import validate_runtime_configuration
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(level=settings.log_level)
+    initialize_error_monitoring()
     validate_runtime_configuration()
     yield
 
