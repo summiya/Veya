@@ -35,6 +35,10 @@ class Settings(BaseSettings):
         "instagram_business_basic,instagram_business_manage_comments"
     )
     instagram_token_encryption_key: str = ""
+    meta_webhook_enabled: bool = False
+    meta_webhook_verify_token: str = ""
+    meta_webhook_app_secret: str = ""
+    meta_webhook_dedupe_seconds: int = 86400
     frontend_app_url: str = "http://localhost:5173"
 
     openai_api_key: str = ""
