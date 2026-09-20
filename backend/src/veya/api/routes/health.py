@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from veya.core.config import settings
+from veya.core.monitoring import capture_operational_alert
 from veya.infrastructure.health.service import HealthService
 
 
@@ -32,6 +33,16 @@ def ready():
     }
 
     if result.status != "ok":
+        capture_operational_alert(
+            "Veya readiness degraded",
+            event="readiness_degraded",
+            level="error",
+            tags={
+                "database": result.database,
+                "redis": result.redis,
+            },
+            dedupe_key=f"readiness:{result.database}:{result.redis}",
+        )
         return JSONResponse(status_code=503, content=payload)
 
     return payload
