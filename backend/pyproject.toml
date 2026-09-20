@@ -22,6 +22,7 @@ dependencies = [
   "nltk-vader-sentiment>=1.0,<2.0",
   "arq>=0.28,<1.0",
   "redis>=5.2,<7.0",
+  "sentry-sdk[fastapi]>=2.66,<3.0",
 ]
 
 [project.optional-dependencies]
