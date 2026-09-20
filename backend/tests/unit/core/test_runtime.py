@@ -50,3 +50,22 @@ def test_production_rejects_development_security_defaults() -> None:
 def test_development_environment_does_not_require_production_secrets() -> None:
     config = Settings(environment="development")
     assert production_configuration_errors(config) == []
+
+
+def test_production_webhooks_require_verification_configuration() -> None:
+    config = valid_production_settings()
+    config.meta_webhook_enabled = True
+    config.meta_webhook_verify_token = ""
+
+    errors = production_configuration_errors(config)
+
+    assert any("META_WEBHOOK_VERIFY_TOKEN" in error for error in errors)
+
+
+def test_production_webhooks_can_reuse_instagram_client_secret() -> None:
+    config = valid_production_settings()
+    config.meta_webhook_enabled = True
+    config.meta_webhook_verify_token = "verify-token"
+    config.meta_webhook_app_secret = ""
+
+    assert production_configuration_errors(config) == []
