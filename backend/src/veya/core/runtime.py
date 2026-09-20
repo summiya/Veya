@@ -32,8 +32,14 @@ def production_configuration_errors(config: Settings) -> list[str]:
     if config.meta_webhook_enabled and not config.meta_webhook_verify_token:
         errors.append("META_WEBHOOK_VERIFY_TOKEN is required when webhooks are enabled")
 
-    if config.meta_webhook_enabled and not config.meta_webhook_app_secret:
-        errors.append("META_WEBHOOK_APP_SECRET is required when webhooks are enabled")
+    if (
+        config.meta_webhook_enabled
+        and not config.meta_webhook_app_secret
+        and not config.instagram_client_secret
+    ):
+        errors.append(
+            "Webhook signature secret is required when webhooks are enabled"
+        )
 
     if not config.frontend_app_url.startswith("https://"):
         errors.append("FRONTEND_APP_URL must use HTTPS in production")
