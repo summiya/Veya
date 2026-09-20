@@ -67,7 +67,7 @@ class InstagramWebhookService:
     def verify_signature(self, *, body: bytes, signature: str | None) -> None:
         self.ensure_enabled()
 
-        secret = settings.meta_webhook_app_secret
+        secret = settings.meta_webhook_app_secret or settings.instagram_client_secret
         if not secret or not signature or not signature.startswith("sha256="):
             raise InstagramWebhookSignatureError("Invalid webhook signature")
 
