@@ -59,6 +59,7 @@ def test_worker_marks_retrying_before_arq_retry(monkeypatch) -> None:
 
 def test_worker_marks_failed_after_last_attempt(monkeypatch) -> None:
     failed: list[tuple[int, int, str]] = []
+    captured: list[tuple[BaseException, dict]] = []
 
     def fail(job_id: int, attempt_count: int):
         raise RuntimeError("permanent failure")
@@ -71,6 +72,11 @@ def test_worker_marks_failed_after_last_attempt(monkeypatch) -> None:
             (job_id, attempt_count, error)
         ),
     )
+    monkeypatch.setattr(
+        worker,
+        "capture_exception",
+        lambda error, **kwargs: captured.append((error, kwargs)),
+    )
 
     with pytest.raises(RuntimeError, match="permanent failure"):
         asyncio.run(
@@ -81,11 +87,15 @@ def test_worker_marks_failed_after_last_attempt(monkeypatch) -> None:
         )
 
     assert failed == [(100, 3, "permanent failure")]
+    assert len(captured) == 1
+    assert captured[0][1]["event"] == "background_sync_failed"
+    assert captured[0][1]["tags"]["job_id"] == 100
 
 
 def test_worker_does_not_retry_reconnect_required_error(monkeypatch) -> None:
     failed: list[tuple[int, int, str]] = []
     retrying: list[tuple[int, int, str]] = []
+    alerts: list[tuple[str, dict]] = []
 
     def fail(job_id: int, attempt_count: int):
         raise InstagramSyncError(
@@ -108,6 +118,11 @@ def test_worker_does_not_retry_reconnect_required_error(monkeypatch) -> None:
             (job_id, attempt_count, error)
         ),
     )
+    monkeypatch.setattr(
+        worker,
+        "capture_operational_alert",
+        lambda message, **kwargs: alerts.append((message, kwargs)) or True,
+    )
 
     with pytest.raises(InstagramSyncError):
         asyncio.run(
@@ -120,3 +135,5 @@ def test_worker_does_not_retry_reconnect_required_error(monkeypatch) -> None:
     assert len(failed) == 1
     assert failed[0][0:2] == (101, 1)
     assert retrying == []
+    assert alerts[0][0] == "Instagram account requires reconnection"
+    assert alerts[0][1]["event"] == "instagram_reconnect_required"

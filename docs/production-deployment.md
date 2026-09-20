@@ -271,3 +271,34 @@ Before restore:
 7. Resume traffic.
 
 CI creates and verifies a real backup archive from the production Docker stack on every change.
+
+
+## Error monitoring
+
+Veya supports Sentry on:
+
+- FastAPI
+- ARQ workers
+- React
+
+Monitoring is activated only when a DSN is configured.
+
+Backend configuration:
+
+```env
+SENTRY_DSN=https://...
+SENTRY_TRACES_SAMPLE_RATE=0.05
+SENTRY_ALERT_COOLDOWN_SECONDS=300
+```
+
+Frontend build configuration:
+
+```env
+VITE_SENTRY_DSN=https://...
+VITE_SENTRY_TRACES_SAMPLE_RATE=0.05
+VITE_RELEASE=<release>
+```
+
+Telemetry is scrubbed before transmission: request bodies, cookies, authorization headers, query strings, and user identity are removed.
+
+See [Error Monitoring and Alerting](./monitoring-alerts.md) for the incident/event taxonomy and recommended alert rules.

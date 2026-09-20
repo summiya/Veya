@@ -9,6 +9,11 @@ from veya.application.background_sync.service import BackgroundSyncService
 from veya.application.instagram.sync_service import InstagramSyncError
 from veya.core.config import settings
 from veya.core.logging import configure_logging
+from veya.core.monitoring import (
+    capture_exception,
+    capture_operational_alert,
+    initialize_error_monitoring,
+)
 from veya.core.runtime import validate_runtime_configuration
 from veya.infrastructure.database.session import SessionLocal
 
@@ -75,6 +80,7 @@ def _mark_enqueue_failed(job_id: int, error_message: str) -> None:
 
 async def on_startup(ctx) -> None:
     configure_logging(level=settings.log_level)
+    initialize_error_monitoring()
     validate_runtime_configuration()
     logger.info("Worker started", extra={"event": "worker_started"})
 
@@ -109,6 +115,14 @@ async def enqueue_due_instagram_accounts(ctx) -> int:
                 job_id,
                 str(exc),
             )
+            capture_exception(
+                exc,
+                event="instagram_sync_enqueue_failed",
+                tags={
+                    "job_id": job_id,
+                    "account_id": account_id,
+                },
+            )
             logger.exception(
                 "Instagram sync enqueue failed",
                 extra={
@@ -142,6 +156,16 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
                 job_id,
                 attempt_count,
                 str(exc),
+            )
+            capture_operational_alert(
+                "Instagram account requires reconnection",
+                event="instagram_reconnect_required",
+                level="error",
+                tags={
+                    "job_id": job_id,
+                    "attempt_count": attempt_count,
+                },
+                dedupe_key=f"instagram-reconnect:{job_id}",
             )
             logger.exception(
                 "Instagram sync requires reconnect",
@@ -180,6 +204,14 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
             attempt_count,
             str(exc),
         )
+        capture_exception(
+            exc,
+            event="instagram_sync_failed",
+            tags={
+                "job_id": job_id,
+                "attempt_count": attempt_count,
+            },
+        )
         logger.exception(
             "Instagram sync failed",
             extra={
@@ -216,6 +248,14 @@ async def sync_instagram_account(ctx, job_id: int) -> dict[str, int]:
             job_id,
             attempt_count,
             str(exc),
+        )
+        capture_exception(
+            exc,
+            event="background_sync_failed",
+            tags={
+                "job_id": job_id,
+                "attempt_count": attempt_count,
+            },
         )
         logger.exception(
             "Background sync failed",

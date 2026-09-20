@@ -8,6 +8,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from veya.core.logging import request_id_context
+from veya.core.monitoring import capture_exception
 
 
 logger = logging.getLogger("veya.http")
@@ -29,6 +30,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            capture_exception(
+                exc,
+                event="http_unhandled_exception",
+                tags={
+                    "method": request.method,
+                    "path": request.url.path,
+                },
+            )
             logger.exception(
                 "Unhandled request error",
                 extra={

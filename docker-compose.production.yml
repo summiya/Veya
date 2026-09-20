@@ -51,6 +51,9 @@ services:
     environment: &backend_environment
       ENVIRONMENT: production
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.05}
+      SENTRY_ALERT_COOLDOWN_SECONDS: ${SENTRY_ALERT_COOLDOWN_SECONDS:-300}
       TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_FAIL_OPEN: ${RATE_LIMIT_FAIL_OPEN:-true}
@@ -119,6 +122,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      args:
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_TRACES_SAMPLE_RATE: ${VITE_SENTRY_TRACES_SAMPLE_RATE:-0.05}
+        VITE_ENVIRONMENT: production
+        VITE_RELEASE: ${VITE_RELEASE:-0.1.0}
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-8080}:80"

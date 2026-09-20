@@ -165,9 +165,24 @@ Remaining:
 - Choose and configure production hosting
 - Managed/off-site automated backup storage
 - Cloud secret-manager integration
-- Error monitoring/alerting platform
 - Meta webhook support
 - Operational dashboards
+
+Error monitoring/alerting integration complete in repository:
+- Sentry FastAPI integration
+- Sentry ARQ worker reporting
+- Sentry React error boundary
+- request-ID correlation
+- privacy/secret scrubbing
+- readiness degradation alerts
+- terminal sync/reconnect alerts
+- alert runbook
+
+External monitoring setup still required:
+- create Sentry project(s)
+- configure production DSNs
+- create notification rules/destinations
+- validate alerts in staging
 
 ### Phase 12 - Product growth
 - Billing/subscriptions

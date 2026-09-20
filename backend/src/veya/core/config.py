@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     service_version: str = "0.1.0"
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.05
+    sentry_alert_cooldown_seconds: int = 300
     database_url: str = "postgresql+psycopg://veya:veya@db:5432/veya"
 
     jwt_secret_key: str = "development-only-change-me"
