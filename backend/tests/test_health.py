@@ -54,6 +54,11 @@ def test_readiness_reports_dependencies(monkeypatch) -> None:
 
 
 def test_readiness_returns_503_when_dependency_is_down(monkeypatch) -> None:
+    alerts: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        "veya.api.routes.health.capture_operational_alert",
+        lambda message, **kwargs: alerts.append((message, kwargs)) or True,
+    )
     monkeypatch.setattr(
         "veya.api.routes.health.HealthService.check",
         lambda self: DependencyHealth(
@@ -68,6 +73,9 @@ def test_readiness_returns_503_when_dependency_is_down(monkeypatch) -> None:
     assert response.status_code == 503
     assert response.json()["status"] == "degraded"
     assert response.json()["dependencies"]["redis"] == "unavailable"
+    assert alerts[0][0] == "Veya readiness degraded"
+    assert alerts[0][1]["event"] == "readiness_degraded"
+    assert alerts[0][1]["tags"]["redis"] == "unavailable"
 
 
 def test_request_id_is_returned_and_preserved() -> None:
