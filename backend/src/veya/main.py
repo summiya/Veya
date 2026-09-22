@@ -12,6 +12,7 @@ from veya.api.routes.insights import router as insights_router
 from veya.api.routes.instagram import router as instagram_router
 from veya.api.routes.safety import router as safety_router
 from veya.api.routes.sentiment import router as sentiment_router
+from veya.api.routes.webhooks import router as webhooks_router
 from veya.core.config import settings
 from veya.core.logging import configure_logging
 from veya.core.monitoring import initialize_error_monitoring
@@ -44,6 +45,7 @@ app.include_router(safety_router)
 app.include_router(insights_router)
 app.include_router(analytics_router)
 app.include_router(background_sync_router)
+app.include_router(webhooks_router)
 
 
 @app.get("/")

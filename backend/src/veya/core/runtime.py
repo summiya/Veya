@@ -29,6 +29,18 @@ def production_configuration_errors(config: Settings) -> list[str]:
     if not config.instagram_redirect_uri.startswith("https://"):
         errors.append("INSTAGRAM_REDIRECT_URI must use HTTPS in production")
 
+    if config.meta_webhook_enabled and not config.meta_webhook_verify_token:
+        errors.append("META_WEBHOOK_VERIFY_TOKEN is required when webhooks are enabled")
+
+    if (
+        config.meta_webhook_enabled
+        and not config.meta_webhook_app_secret
+        and not config.instagram_client_secret
+    ):
+        errors.append(
+            "Webhook signature secret is required when webhooks are enabled"
+        )
+
     if not config.frontend_app_url.startswith("https://"):
         errors.append("FRONTEND_APP_URL must use HTTPS in production")
 

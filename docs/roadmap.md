@@ -165,7 +165,6 @@ Remaining:
 - Choose and configure production hosting
 - Managed/off-site automated backup storage
 - Cloud secret-manager integration
-- Meta webhook support
 - Operational dashboards
 
 Error monitoring/alerting integration complete in repository:
@@ -177,6 +176,20 @@ Error monitoring/alerting integration complete in repository:
 - readiness degradation alerts
 - terminal sync/reconnect alerts
 - alert runbook
+
+Meta webhook support complete in repository:
+- verification challenge endpoint
+- HMAC SHA-256 delivery validation
+- Redis duplicate-delivery protection
+- comment-event account matching
+- webhook-triggered ARQ sync jobs
+- scheduled polling retained as reconciliation fallback
+
+External webhook setup still required:
+- public HTTPS callback URL
+- Meta webhook callback verification
+- subscribe the production app to Instagram comments
+- validate with a real Business/Creator account
 
 External monitoring setup still required:
 - create Sentry project(s)
